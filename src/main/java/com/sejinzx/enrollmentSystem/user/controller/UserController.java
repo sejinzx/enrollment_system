@@ -1,0 +1,38 @@
+package com.sejinzx.enrollmentSystem.user.controller;
+
+import com.sejinzx.enrollmentSystem.user.dto.RequestAddUser;
+import com.sejinzx.enrollmentSystem.user.dto.RequestLogin;
+import com.sejinzx.enrollmentSystem.user.service.UserService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jdk.jfr.Description;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/user")
+@RequiredArgsConstructor
+public class UserController {
+
+    private final UserService userService;
+
+    @Tag(name = "User 회원가입")
+    @PostMapping("/signup")
+    public ResponseEntity<?> signupUser(@RequestBody RequestAddUser requestAddUser) {
+        return userService.createUser(requestAddUser);
+    }
+
+    @Tag(name = "User ID 중복 확인")
+    @Description("userId 존재 -> true, userId 존재 X -> false")
+    @GetMapping("/existsById")
+    public boolean existsById(@RequestParam String id) {
+        return userService.existsById(id);
+    }
+
+    @Tag(name = "User 로그인")
+    @PostMapping("/login")
+    public ResponseEntity<?> loginUser(@RequestBody RequestLogin requestLogin) {
+        return userService.loginUser(requestLogin);
+    }
+
+}
