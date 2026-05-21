@@ -59,7 +59,7 @@ public class ClassEntity {
     private Boolean classDeleted = false;
 
     @ManyToOne
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_seq")
     private UserEntity user;
 
     @Builder

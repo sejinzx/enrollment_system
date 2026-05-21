@@ -6,12 +6,9 @@ import com.sejinzx.enrollmentSystem.user.dto.RequestLogin;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-
 import java.util.Map;
 
 @Service
@@ -25,56 +22,68 @@ public class UserService {
     /**
      * 회원가입
      */
-    public ResponseEntity<?> createUser(RequestAddUser requestAddUser) {
+    public UserEntity createUser(RequestAddUser requestAddUser) {
 
+        // 중복 확인
+        if (userRepository.findByUserIdAndUserDeletedFalse(
+                requestAddUser.getUserId()).isPresent()) {
+
+            throw new RuntimeException("이미 존재하는 ID");
+        }
+
+        // 비밀번호 암호화
         String encodedPw = pwEncoder.encode(requestAddUser.getUserPw());
 
+        // Entity 생성
         UserEntity userEntity = UserEntity.builder()
                 .userId(requestAddUser.getUserId())
                 .userPw(encodedPw)
                 .userType(requestAddUser.getUserType())
                 .build();
 
-        UserEntity saved = userRepository.save(userEntity);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
-
+        // 저장
+        return userRepository.save(userEntity);
     }
 
     /**
      * 아이디 중복 확인
      */
     public boolean existsById(String id) {
-        // 존재 -> true, 존재 X -> false
-        return userRepository.findById(id).isPresent();
+
+        return userRepository
+                .findByUserIdAndUserDeletedFalse(id)
+                .isPresent();
     }
 
-    /*
-    * 로그인
-    */
-    public ResponseEntity<?> loginUser(RequestLogin requestLogin) {
-        // 아이디 확인
-        UserEntity user = userRepository.findById(requestLogin.getUserId())
+    /**
+     * 로그인
+     */
+    public Map<String, String> loginUser(RequestLogin requestLogin) {
+
+        // 유저 조회
+        UserEntity user = userRepository
+                .findByUserIdAndUserDeletedFalse(requestLogin.getUserId())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         // 비밀번호 확인
-        if (!pwEncoder.matches(requestLogin.getUserPw(), user.getUserPw())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("Message", "Password mismatch"));
+        if (!pwEncoder.matches(
+                requestLogin.getUserPw(),
+                user.getUserPw())) {
+
+            throw new RuntimeException("Password mismatch");
         }
 
-        // jwt 토큰 생성
+        // JWT 생성
         String accessToken = jwtTokenProvider.createJwt(
                 user.getUserId(),
                 "ROLE_" + user.getUserType().name(),
-                3600000L // 1시간 (60 * 60 * 1000)
+                3600000L
         );
 
-        return ResponseEntity.status(HttpStatus.OK)
-                .body(Map.of(
-                        "Message", "Login success",
-                        "AccessToken", accessToken
-                ));
+        // 응답 반환
+        return Map.of(
+                "message", "Login success",
+                "accessToken", accessToken
+        );
     }
-
 }
