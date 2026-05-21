@@ -17,6 +17,10 @@ import java.time.LocalDate;
 public class UserEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_seq", nullable = false)
+    private Long userSeq;
+
     @Column(name = "user_id", nullable = false)
     private String userId;
 

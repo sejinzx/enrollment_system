@@ -51,7 +51,7 @@ public class ClassService {
     public UserEntity validateCreator(String userId) {
 
         // 1. 사용자 유무 확인
-        UserEntity user = userRepository.findById(userId)
+        UserEntity user = userRepository.findByUserIdAndUserDeletedFalse(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // 2. 사용자 Type 확인

@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jdk.jfr.Description;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,20 +22,25 @@ public class UserController {
     @Tag(name = "User 회원가입")
     @PostMapping("/signup")
     public ResponseEntity<?> signupUser(@RequestBody RequestAddUser requestAddUser) {
-        return userService.createUser(requestAddUser);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(userService.createUser(requestAddUser));
     }
 
     @Tag(name = "User ID 중복 확인")
     @Description("userId 존재 -> true, userId 존재 X -> false")
     @GetMapping("/existsById")
-    public boolean existsById(@RequestParam String id) {
-        return userService.existsById(id);
+    public ResponseEntity<?> existsById(@RequestParam String id) {
+
+        return ResponseEntity.ok(userService.existsById(id));
     }
 
     @Tag(name = "User 로그인")
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody RequestLogin requestLogin) {
-        return userService.loginUser(requestLogin);
-    }
 
+        return ResponseEntity.ok(
+                userService.loginUser(requestLogin)
+        );
+    }
 }
