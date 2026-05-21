@@ -42,6 +42,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
                         // .requestMatchers("/admin").hasAuthority("ADMIN") // /admin 경로는 ADMIN 권한이 필요
+                        .requestMatchers("/api/class/**").authenticated()
                         .anyRequest().authenticated())
 
                 // jwt 필터 추가
