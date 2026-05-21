@@ -3,6 +3,7 @@ package com.sejinzx.enrollmentSystem.user.controller;
 import com.sejinzx.enrollmentSystem.user.dto.RequestAddUser;
 import com.sejinzx.enrollmentSystem.user.dto.RequestLogin;
 import com.sejinzx.enrollmentSystem.user.service.UserService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jdk.jfr.Description;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/user")
 @RequiredArgsConstructor
+@SecurityRequirements
 public class UserController {
 
     private final UserService userService;
