@@ -61,9 +61,7 @@ public class UserService {
     public Map<String, String> loginUser(RequestLogin requestLogin) {
 
         // 유저 조회
-        UserEntity user = userRepository
-                .findByUserIdAndUserDeletedFalse(requestLogin.getUserId())
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        UserEntity user = getUser(requestLogin.getUserId());
 
         // 비밀번호 확인
         if (!pwEncoder.matches(
@@ -86,4 +84,13 @@ public class UserService {
                 "accessToken", accessToken
         );
     }
+
+    /**
+     * userId로 user 정보 조회
+     */
+    public UserEntity getUser(String userId) {
+        return userRepository.findByUserIdAndUserDeletedFalse(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    }
+
 }

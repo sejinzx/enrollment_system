@@ -29,6 +29,14 @@ public class Config {
     }
 
     @Bean
+    public GroupedOpenApi enrollApi() {
+        return GroupedOpenApi.builder()
+                .group("enroll")
+                .pathsToMatch("/api/enroll/**")
+                .build();
+    }
+
+    @Bean
     public OpenAPI openAPI() {
         return new OpenAPI()
                 .info(new Info()
