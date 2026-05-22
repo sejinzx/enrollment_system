@@ -39,7 +39,7 @@ public class UserEntity {
     private LocalDate userUpdateDate;
 
     @Column(name = "user_deleted", nullable = false)
-    private Boolean userDeleted = false;
+    private boolean userDeleted = false;
 
     @Builder
     public UserEntity(String userId, String userPw, UserType userType){

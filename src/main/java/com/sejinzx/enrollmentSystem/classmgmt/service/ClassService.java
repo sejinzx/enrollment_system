@@ -8,7 +8,8 @@ import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassState;
 import com.sejinzx.enrollmentSystem.classmgmt.repository.ClassRepository;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
-import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
+import com.sejinzx.enrollmentSystem.user.service.UserService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Service;
 public class ClassService {
 
     private final ClassRepository classRepository;
-    private final UserRepository userRepository;
+    private final UserService userService;
 
     /**
      * 강의 등록
@@ -51,8 +52,7 @@ public class ClassService {
     public UserEntity validateCreator(String userId) {
 
         // 1. 사용자 유무 확인
-        UserEntity user = userRepository.findByUserIdAndUserDeletedFalse(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        UserEntity user = userService.getUser(userId);
 
         // 2. 사용자 Type 확인
         if (user.getUserType() != UserType.CREATOR) {
@@ -70,8 +70,7 @@ public class ClassService {
                                    String userId) {
 
         // 1. 강의 유무 확인
-        ClassEntity classEntity = classRepository.findByClassSeqAndClassDeletedFalse(classSeq)
-                .orElseThrow(() -> new RuntimeException("Class not found"));
+        ClassEntity classEntity = getClass(classSeq);
 
         // 2. 본인 글인지 확인
         if (!classEntity.getUser().getUserId().equals(userId)) {
@@ -131,21 +130,20 @@ public class ClassService {
      */
     public ResponseGetClass getDetailClass(Long classSeq) {
 
-        // 1. Class 존재 여부 확인
-        ClassEntity result = classRepository.findByClassSeqAndClassDeletedFalse(classSeq)
-                .orElseThrow(() -> new RuntimeException("Class not found"));
+        // 1. 강의 유무 확인
+        ClassEntity classEntity = getClass(classSeq);
 
         // 2. Entity -> DTO 변환
         ResponseGetClass res = ResponseGetClass.builder()
-                .classSeq(result.getClassSeq())
-                .classTitle(result.getClassTitle())
-                .classContent(result.getClassContent())
-                .classState(result.getClassState())
-                .classCurrApps(result.getClassCurrApps())
-                .classEndDate(result.getClassEndDate())
-                .classStartDate(result.getClassStartDate())
-                .classPrice(result.getClassPrice())
-                .classMaxCap(result.getClassMaxCap())
+                .classSeq(classEntity.getClassSeq())
+                .classTitle(classEntity.getClassTitle())
+                .classContent(classEntity.getClassContent())
+                .classState(classEntity.getClassState())
+                .classCurrApps(classEntity.getClassCurrApps())
+                .classEndDate(classEntity.getClassEndDate())
+                .classStartDate(classEntity.getClassStartDate())
+                .classPrice(classEntity.getClassPrice())
+                .classMaxCap(classEntity.getClassMaxCap())
                 .build();
 
         return res;
@@ -157,8 +155,7 @@ public class ClassService {
     public ClassEntity deleteClass(Long classSeq, String userId) {
 
         // 1. 강의 유무 확인
-        ClassEntity classEntity = classRepository.findByClassSeqAndClassDeletedFalse(classSeq)
-                .orElseThrow(() -> new RuntimeException("Class not found"));
+        ClassEntity classEntity = getClass(classSeq);
 
         // 2. 본인 글인지 확인
         if (!classEntity.getUser().getUserId().equals(userId)) {
@@ -169,6 +166,42 @@ public class ClassService {
         classEntity.deleteClass();
 
         return classRepository.save(classEntity);
+
+    }
+
+    /**
+     * 강의 정보 조회
+     */
+    public ClassEntity getClass(Long classSeq) {
+        return classRepository.findByClassSeqAndClassDeletedFalse(classSeq)
+                .orElseThrow(() -> new RuntimeException("Class not found"));
+    }
+
+    /**
+     * 강의 신청 가능 여부 확인
+     */
+    @Transactional
+    public ClassEntity validateCapacity(Long classSeq) {
+
+        // 1. 강의 유무 확인
+        ClassEntity classEntity = classRepository.findByIdWithLock(classSeq)
+                .orElseThrow(() -> new RuntimeException("Class not found"));
+
+        // 2. 강의 신청 가능 상태 확인
+        if (classEntity.getClassState() != ClassState.OPEN) {
+            throw new RuntimeException("신청 불가 상태");
+        }
+
+        // 3. 정원 초과 여부 확인
+        if (classEntity.getClassCurrApps() >= classEntity.getClassMaxCap()) {
+            throw new RuntimeException("정원 초과");
+        }
+
+        // 4. 현재 신청 인원 증가
+        classEntity.increaseCurrApps();
+
+        return classEntity;
+
     }
 
 }

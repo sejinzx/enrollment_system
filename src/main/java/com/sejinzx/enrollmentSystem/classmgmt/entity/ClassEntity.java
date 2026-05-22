@@ -56,7 +56,7 @@ public class ClassEntity {
     private LocalDate classUpdateDate;
 
     @Column(name = "class_deleted", nullable = false)
-    private Boolean classDeleted = false;
+    private boolean classDeleted = false;
 
     @ManyToOne
     @JoinColumn(name = "user_seq")
@@ -96,6 +96,13 @@ public class ClassEntity {
      */
     public void deleteClass() {
         this.classDeleted = true;
+    }
+
+    /**
+     * 현재 신청 인원 증가
+     */
+    public void increaseCurrApps() {
+        this.classCurrApps++;
     }
 
 }
