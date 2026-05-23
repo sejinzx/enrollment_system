@@ -1,6 +1,6 @@
 package com.sejinzx.enrollmentSystem.classmgmt.dto;
 
-import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassState;
+import lombok.Builder;
 import lombok.Getter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -15,4 +15,15 @@ public class RequestAddClass {
     private LocalDate classStartDate;
     private LocalDate classEndDate;
 
+    @Builder
+    public RequestAddClass(String classTitle, String classContent,
+                           BigDecimal classPrice, int classMaxCap,
+                           LocalDate classStartDate, LocalDate classEndDate) {
+        this.classTitle = classTitle;
+        this.classContent = classContent;
+        this.classPrice = classPrice;
+        this.classMaxCap = classMaxCap;
+        this.classStartDate = classStartDate;
+        this.classEndDate = classEndDate;
+    }
 }
