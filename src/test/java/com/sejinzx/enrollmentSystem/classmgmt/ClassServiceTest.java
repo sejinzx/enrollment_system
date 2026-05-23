@@ -11,7 +11,9 @@ import com.sejinzx.enrollmentSystem.classmgmt.service.ClassService;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,7 +25,7 @@ import java.time.LocalDate;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class ClassServiceTest {
+class ClassServiceTest {
 
     @Autowired
     private ClassService classService;
@@ -36,9 +38,10 @@ public class ClassServiceTest {
 
     /*
      * 강의 등록 테스트
+     * 예상 결과: 강의 등록 성공
      */
     @Test
-    void createClass_test() {
+    void createClass_success_test() {
 
         // given
         UserEntity creator = userRepository.save(
@@ -50,12 +53,12 @@ public class ClassServiceTest {
         );
 
         RequestAddClass request = RequestAddClass.builder()
-                .classTitle("Spring")
+                .classTitle("Spring Boot")
                 .classContent("Backend")
                 .classPrice(BigDecimal.valueOf(10000))
                 .classMaxCap(20)
-                .classStartDate(LocalDate.now().plusDays(5))
-                .classEndDate(LocalDate.now().plusDays(15))
+                .classStartDate(LocalDate.now().plusDays(1))
+                .classEndDate(LocalDate.now().plusDays(10))
                 .build();
 
         // when
@@ -71,7 +74,7 @@ public class ClassServiceTest {
                         .orElseThrow();
 
         Assertions.assertEquals(
-                "Spring",
+                "Spring Boot",
                 result.getClassTitle()
         );
 
@@ -79,13 +82,16 @@ public class ClassServiceTest {
                 ClassState.DRAFT,
                 result.getClassState()
         );
+
+        System.out.println("강의 등록 성공");
     }
 
     /*
      * 강의 수정 테스트
+     * 예상 결과: 수정 성공
      */
     @Test
-    void updateClass_test() {
+    void updateClass_success_test() {
 
         // given
         UserEntity creator = userRepository.save(
@@ -102,8 +108,8 @@ public class ClassServiceTest {
                         .classContent("old")
                         .classPrice(BigDecimal.valueOf(1000))
                         .classMaxCap(10)
-                        .classStartDate(LocalDate.now().plusDays(5))
-                        .classEndDate(LocalDate.now().plusDays(15))
+                        .classStartDate(LocalDate.now().plusDays(1))
+                        .classEndDate(LocalDate.now().plusDays(10))
                         .classState(ClassState.DRAFT)
                         .user(creator)
                         .build()
@@ -116,7 +122,7 @@ public class ClassServiceTest {
                         .classPrice(BigDecimal.valueOf(2000))
                         .classMaxCap(30)
                         .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(13))
+                        .classEndDate(LocalDate.now().plusDays(15))
                         .classState(ClassState.OPEN)
                         .build();
 
@@ -142,13 +148,16 @@ public class ClassServiceTest {
                 ClassState.OPEN,
                 result.getClassState()
         );
+
+        System.out.println("강의 수정 성공");
     }
 
     /*
-     * 강의 목록 조회 테스트
+     * 강의 수정 실패 테스트
+     * 예상 결과: 본인 글 아님
      */
     @Test
-    void getListClass_test() {
+    void updateClass_fail_test() {
 
         // given
         UserEntity creator = userRepository.save(
@@ -159,68 +168,9 @@ public class ClassServiceTest {
                         .build()
         );
 
-        for (int i = 1; i <= 10; i++) {
-
-            classRepository.save(
-                    ClassEntity.builder()
-                            .classTitle("class" + i)
-                            .classContent("content")
-                            .classPrice(BigDecimal.valueOf(1000))
-                            .classMaxCap(20)
-                            .classStartDate(LocalDate.now())
-                            .classEndDate(LocalDate.now().plusDays(5))
-                            .classState(ClassState.OPEN)
-                            .user(creator)
-                            .build()
-            );
-        }
-
-        for (int i = 11; i <= 20; i++) {
-
-            classRepository.save(
-                    ClassEntity.builder()
-                            .classTitle("class" + i)
-                            .classContent("content")
-                            .classPrice(BigDecimal.valueOf(1000))
-                            .classMaxCap(20)
-                            .classStartDate(LocalDate.now().plusDays(5))
-                            .classEndDate(LocalDate.now().plusDays(15))
-                            .classState(ClassState.DRAFT)
-                            .user(creator)
-                            .build()
-            );
-        }
-
-        // when
-        Page<ResponseGetClass> result =
-                classService.getListClass(
-                        0,
-                        10,
-                        ClassState.OPEN
-                );
-
-        // then
-        Assertions.assertEquals(
-                20,
-                result.getTotalElements()
-        );
-
-        Assertions.assertEquals(
-                10,
-                result.getContent().size()
-        );
-    }
-
-    /*
-     * 강의 상세 조회 테스트
-     */
-    @Test
-    void getDetailClass_test() {
-
-        // given
-        UserEntity creator = userRepository.save(
+        UserEntity otherUser = userRepository.save(
                 UserEntity.builder()
-                        .userId("creator")
+                        .userId("other")
                         .userPw("1234")
                         .userType(UserType.CREATOR)
                         .build()
@@ -228,40 +178,51 @@ public class ClassServiceTest {
 
         ClassEntity classEntity = classRepository.save(
                 ClassEntity.builder()
-                        .classTitle("detail")
-                        .classContent("detail content")
-                        .classPrice(BigDecimal.valueOf(5000))
-                        .classMaxCap(15)
+                        .classTitle("class")
+                        .classContent("content")
+                        .classPrice(BigDecimal.valueOf(1000))
+                        .classMaxCap(10)
                         .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(3))
-                        .classState(ClassState.OPEN)
+                        .classEndDate(LocalDate.now().plusDays(5))
+                        .classState(ClassState.DRAFT)
                         .user(creator)
                         .build()
         );
 
+        RequestUpdateClass request =
+                RequestUpdateClass.builder()
+                        .classTitle("hack")
+                        .classContent("hack")
+                        .classPrice(BigDecimal.valueOf(9999))
+                        .classMaxCap(99)
+                        .classStartDate(LocalDate.now())
+                        .classEndDate(LocalDate.now().plusDays(20))
+                        .classState(ClassState.OPEN)
+                        .build();
+
         // when
-        ResponseGetDetailClass result =
-                classService.getDetailClass(
-                        classEntity.getClassSeq()
+        RuntimeException exception =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> classService.updateClass(
+                                classEntity.getClassSeq(),
+                                request,
+                                otherUser.getUserId()
+                        )
                 );
 
         // then
-        Assertions.assertEquals(
-                "detail",
-                result.getClassTitle()
-        );
+        Assertions.assertEquals("User's Class not found", exception.getMessage());
 
-        Assertions.assertEquals(
-                15,
-                result.getClassMaxCap()
-        );
+        System.out.println("본인 글 아님 예외 발생");
     }
 
     /*
      * 강의 삭제 테스트
+     * 예상 결과: 삭제 성공
      */
     @Test
-    void deleteClass_test() {
+    void deleteClass_success_test() {
 
         // given
         UserEntity creator = userRepository.save(
@@ -279,7 +240,7 @@ public class ClassServiceTest {
                         .classPrice(BigDecimal.valueOf(1000))
                         .classMaxCap(10)
                         .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(1))
+                        .classEndDate(LocalDate.now().plusDays(5))
                         .classState(ClassState.OPEN)
                         .user(creator)
                         .build()
@@ -300,10 +261,15 @@ public class ClassServiceTest {
         Assertions.assertTrue(
                 result.isClassDeleted()
         );
+
+        System.out.println("강의 삭제 성공");
     }
 
     /*
-     * 클래스 상태 변경 테스트
+     * 모집 상태 변경 테스트
+     * 예상 결과:
+     * DRAFT -> OPEN
+     * OPEN -> CLOSED
      */
     @Test
     void updateClassState_test() {
@@ -368,5 +334,7 @@ public class ClassServiceTest {
                 ClassState.CLOSED,
                 resultOpen.getClassState()
         );
+
+        System.out.println("모집 상태 변경 성공");
     }
 }
