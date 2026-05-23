@@ -137,7 +137,7 @@ public class ClassService {
         ClassEntity classEntity = getClass(classSeq);
 
         // 2. Entity -> DTO 변환
-        ResponseGetClass res = ResponseGetClass.builder()
+        return ResponseGetClass.builder()
                 .classSeq(classEntity.getClassSeq())
                 .classTitle(classEntity.getClassTitle())
                 .classContent(classEntity.getClassContent())
@@ -149,7 +149,6 @@ public class ClassService {
                 .classMaxCap(classEntity.getClassMaxCap())
                 .build();
 
-        return res;
     }
 
     /**
