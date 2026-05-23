@@ -18,6 +18,11 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     Page<ClassEntity> findByClassDeletedFalse(Pageable pageable);
     Page<ClassEntity> findByClassStateAndClassDeletedFalse(ClassState tate, Pageable pageable);
     Optional<ClassEntity> findByClassSeqAndClassDeletedFalse(Long classSeq);
+    Optional<ClassEntity>
+    findByClassSeqAndUser_UserSeqAndClassDeletedFalse(
+            Long classSeq,
+            Long userSeq
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
