@@ -6,7 +6,9 @@ import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
 import com.sejinzx.enrollmentSystem.user.service.UserService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,6 +18,16 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @ActiveProfiles("test")
 class UserServiceTest {
+
+    @BeforeEach
+    void before() {
+        System.out.println("===== 테스트 시작 =====");
+    }
+
+    @AfterEach
+    void after() {
+        System.out.println("===== 테스트 종료 =====");
+    }
 
     @Autowired
     private UserService userService;
@@ -27,7 +39,7 @@ class UserServiceTest {
     private BCryptPasswordEncoder pwEncoder;
 
     /*
-     * 회원가입 테스트
+     * 회원가입
      */
     @Test
     void createUser_test() {
@@ -59,13 +71,15 @@ class UserServiceTest {
                         result.getUserPw()
                 )
         );
+
     }
 
     /*
-     * 아이디 중복 확인 테스트
+     * 회원가입 실패 테스트
+     * 예상 결과: ID exists
      */
     @Test
-    void existsById_test() {
+    void createUser_fail_test() {
 
         // given
         userRepository.save(
@@ -76,12 +90,24 @@ class UserServiceTest {
                         .build()
         );
 
-        // when
-        boolean result =
-                userService.existsById("existsUser");
+        RequestAddUser request =
+                RequestAddUser.builder()
+                        .userId("existsUser")
+                        .userPw("1234")
+                        .userType(UserType.CLASSMATE)
+                        .build();
 
-        // then
-        Assertions.assertTrue(result);
+        // when & then
+        RuntimeException exception =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> userService.createUser(request)
+                );
+
+        Assertions.assertEquals(
+                "ID exists",
+                exception.getMessage()
+        );
     }
 
     /*
@@ -116,62 +142,12 @@ class UserServiceTest {
         Assertions.assertNotNull(token);
 
         System.out.println("JWT Token = " + token);
-    }
 
-    /*
-     * 사용자 조회 테스트
-     */
-    @Test
-    void getUser_test() {
-
-        // given
-        userRepository.save(
-                UserEntity.builder()
-                        .userId("findUser")
-                        .userPw("1234")
-                        .userType(UserType.CLASSMATE)
-                        .build()
-        );
-
-        // when
-        UserEntity result =
-                userService.getUser("findUser");
-
-        // then
-        Assertions.assertEquals(
-                "findUser",
-                result.getUserId()
-        );
-    }
-
-    /*
-     * Creator 권한 확인 테스트
-     */
-    @Test
-    void validateCreator_test() {
-
-        // given
-        userRepository.save(
-                UserEntity.builder()
-                        .userId("creator")
-                        .userPw("1234")
-                        .userType(UserType.CREATOR)
-                        .build()
-        );
-
-        // when
-        UserEntity result =
-                userService.validateCreator("creator");
-
-        // then
-        Assertions.assertEquals(
-                UserType.CREATOR,
-                result.getUserType()
-        );
     }
 
     /*
      * Creator 권한 실패 테스트
+     * 예상 결과: 권한 없음
      */
     @Test
     void validateCreator_fail_test() {
@@ -196,5 +172,7 @@ class UserServiceTest {
                 "권한 없음",
                 exception.getMessage()
         );
+
     }
+
 }

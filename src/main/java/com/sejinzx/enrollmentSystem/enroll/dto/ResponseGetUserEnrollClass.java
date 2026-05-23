@@ -10,7 +10,6 @@ public class ResponseGetUserEnrollClass {
     private String userId;
 
     @Builder
-
     public ResponseGetUserEnrollClass(Long enrollSeq, String userId) {
         this.enrollSeq = enrollSeq;
         this.userId = userId;
