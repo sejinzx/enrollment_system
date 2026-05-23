@@ -16,6 +16,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ClassService {
@@ -120,7 +123,7 @@ public class ClassService {
         ClassEntity classEntity = getClass(classSeq);
 
         // 2. Entity -> DTO 변환
-        return ResponseGetDetailClass.builder()
+        return ResponseGetClass.builder()
                 .classSeq(classEntity.getClassSeq())
                 .classTitle(classEntity.getClassTitle())
                 .classContent(classEntity.getClassContent())
@@ -190,6 +193,33 @@ public class ClassService {
 
         return classEntity;
 
+    }
+
+    /**
+     *
+     */
+    @Transactional
+    public void updateClassState() {
+
+        LocalDate today = LocalDate.now();
+
+        // 1. 모집 예정 -> 모집중 변경
+        List<ClassEntity> openClasses =
+                classRepository.findByClassStateAndClassStartDateLessThanEqual(
+                        ClassState.DRAFT,
+                        today
+                );
+
+        openClasses.forEach(ClassEntity::openClass);
+
+        // 2. 모집중 -> 모집 종료 변경
+        List<ClassEntity> closedClasses =
+                classRepository.findByClassStateAndClassEndDateBefore(
+                        ClassState.OPEN,
+                        today
+                );
+
+        closedClasses.forEach(ClassEntity::closeClass);
     }
 
 }
