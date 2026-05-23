@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/class")
 @RequiredArgsConstructor
@@ -26,7 +28,10 @@ public class ClassController {
         String userId = auth.getName();
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(classService.createClass(requestAddClass, userId));
+                .body(
+                        Map.of("classSeq: ", classService.createClass(requestAddClass, userId),
+                        "message: ", "강의 등록 완료" )
+                );
 
     }
 
@@ -39,7 +44,8 @@ public class ClassController {
         String userId = auth.getName();
 
         return ResponseEntity.ok(
-                classService.updateClass(classSeq, requestUpdateClass, userId)
+                Map.of("classSeq: ", classService.updateClass(classSeq, requestUpdateClass, userId),
+                        "message: ", "강의 수정 완료" )
         );
 
     }
@@ -75,7 +81,8 @@ public class ClassController {
         String userId = auth.getName();
 
         return ResponseEntity.ok(
-                classService.deleteClass(classSeq, userId)
+                Map.of("classSeq: ", classService.deleteClass(classSeq, userId),
+                        "message: ", "강의 삭제 완료" )
         );
 
     }
