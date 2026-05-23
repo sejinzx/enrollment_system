@@ -123,7 +123,7 @@ public class ClassService {
         ClassEntity classEntity = getClass(classSeq);
 
         // 2. Entity -> DTO 변환
-        return ResponseGetClass.builder()
+        return ResponseGetDetailClass.builder()
                 .classSeq(classEntity.getClassSeq())
                 .classTitle(classEntity.getClassTitle())
                 .classContent(classEntity.getClassContent())
