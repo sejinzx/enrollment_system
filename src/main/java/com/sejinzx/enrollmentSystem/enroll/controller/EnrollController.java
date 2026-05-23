@@ -2,11 +2,14 @@ package com.sejinzx.enrollmentSystem.enroll.controller;
 
 import com.sejinzx.enrollmentSystem.enroll.service.EnrollService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jdk.jfr.Description;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/enroll")
@@ -23,7 +26,10 @@ public class EnrollController {
         String userId = auth.getName();
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(enrollService.createEnroll(classSeq, userId));
+                .body(
+                        Map.of("enrollSeq", enrollService.createEnroll(classSeq, userId),
+                                "message", "success registration")
+                );
 
     }
 
@@ -35,7 +41,8 @@ public class EnrollController {
         String userId = auth.getName();
 
         return ResponseEntity.ok(
-                enrollService.deleteEnroll(enrollSeq, userId)
+                Map.of("enrollSeq", enrollService.deleteEnroll(enrollSeq, userId),
+                        "message", "success cancel")
         );
 
     }
@@ -51,6 +58,21 @@ public class EnrollController {
 
         return ResponseEntity.ok(
                 enrollService.getMyListEnroll(page, size, userId)
+        );
+
+    }
+
+    @Tag(name = "강의 별 수강생 목록 조회")
+    @Description("본인이 개설한 강의의 수강생 목록만 조회 가능")
+    @GetMapping("/{classSeq}/userList")
+    public ResponseEntity<?> getClassEnrollUserList(@RequestParam(defaultValue = "0") int page,
+                                                    @RequestParam(defaultValue = "10") int size,
+                                                    @PathVariable Long classSeq, Authentication auth){
+
+        String userId = auth.getName();
+
+        return ResponseEntity.ok(
+                enrollService.getClassEnrollUserList(page, size, classSeq, userId)
         );
 
     }

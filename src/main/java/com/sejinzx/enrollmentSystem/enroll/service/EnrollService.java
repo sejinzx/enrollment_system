@@ -3,6 +3,7 @@ package com.sejinzx.enrollmentSystem.enroll.service;
 import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassEntity;
 import com.sejinzx.enrollmentSystem.classmgmt.service.ClassService;
 import com.sejinzx.enrollmentSystem.enroll.dto.ResponseGetEnroll;
+import com.sejinzx.enrollmentSystem.enroll.dto.ResponseGetUserEnrollClass;
 import com.sejinzx.enrollmentSystem.enroll.entity.EnrollEntity;
 import com.sejinzx.enrollmentSystem.enroll.entity.EnrollState;
 import com.sejinzx.enrollmentSystem.enroll.repository.EnrollRepository;
@@ -29,13 +30,13 @@ public class EnrollService {
      * 수강 신청
      */
     @Transactional
-    public EnrollEntity createEnroll(Long classSeq, String userId) {
+    public Long createEnroll(Long classSeq, String userId) {
 
         // 1. 유저 조회
         UserEntity user = userService.getUser(userId);
 
         // 2. 강의 조회 및 정원 확인, 증가
-        ClassEntity classEntity = classService.validateCapacity(classSeq);
+        ClassEntity classEntity = classService.getAvailableClassWithLock(classSeq);
 
         // 3. 수강 신청 여부 확인
         Optional<EnrollEntity> opt = enrollRepository.findByUser_UserSeqAndClassEntity_ClassSeq(user.getUserSeq(), classSeq);
@@ -49,7 +50,7 @@ public class EnrollService {
                     .build();
         }
         else if (opt.get().getEnrollState() == EnrollState.CANCELLED) {
-            // 4-2. 수강 재신청
+            // 4-2. 취소 후 재신청
             enrollEntity = opt.get();
             enrollEntity.reEnroll();
         }
@@ -58,14 +59,17 @@ public class EnrollService {
             throw new RuntimeException("이미 신청한 강의");
         }
 
-        return enrollRepository.save(enrollEntity);
+        // 5. 저장
+        EnrollEntity saved = enrollRepository.save(enrollEntity);
+
+        return saved.getEnrollSeq();
 
     }
 
     /**
      * 수강 신청 취소 (상태 변경)
      */
-    public EnrollEntity deleteEnroll(Long enrollSeq, String userId) {
+    public Long deleteEnroll(Long enrollSeq, String userId) {
 
         // 1. 수강 신청 유무 확인
         EnrollEntity enrollEntity = getEnroll(enrollSeq);
@@ -78,7 +82,10 @@ public class EnrollService {
         // 3. enrollState: PENDING or CONFIRMED -> CANCELLED 변경
         enrollEntity.deleteEnroll();
 
-        return enrollRepository.save(enrollEntity);
+        // 4. 저장
+        EnrollEntity saved = enrollRepository.save(enrollEntity);
+
+        return saved.getEnrollSeq();
 
     }
 
@@ -117,7 +124,7 @@ public class EnrollService {
      * 결제 후 상태 변경
      * 결제 시스템 연동 시 사용
      */
-    public EnrollEntity payedEnroll(Long enrollSeq, String userId) {
+    public Long payedEnroll(Long enrollSeq, String userId) {
 
         // 1. 수강 신청 유무 확인
         EnrollEntity enrollEntity = getEnroll(enrollSeq);
@@ -130,7 +137,37 @@ public class EnrollService {
         // 3. enrollState: PENDING -> CONFIRMED 변경
         enrollEntity.payedEnroll();
 
-        return enrollRepository.save(enrollEntity);
+        // 4. 저장
+        EnrollEntity saved = enrollRepository.save(enrollEntity);
+
+        return saved.getEnrollSeq();
+
+    }
+
+    /**
+     * 강의 별 수강생 목록 조회
+     */
+    public Page<ResponseGetUserEnrollClass> getClassEnrollUserList(int page, int size, Long classSeq, String userId) {
+
+        // 1. 사용자 검증
+        Long userSeq = userService.validateCreator(userId).getUserSeq();
+
+        // 2. 본인 강의 검증
+        classService.getValidateMyClass(classSeq, userSeq);
+
+        // 3. 페이징 조건 설정
+        Pageable pageable = PageRequest.of(page, size);
+
+        // 4. 수강 신청 목록 조회
+        Page<EnrollEntity> result =
+                enrollRepository.findByClassEntity_ClassSeqAndEnrollState(classSeq, EnrollState.CONFIRMED,pageable);
+
+        // 5. enrollSeq, 사용자 아이디만 반환
+        return result.map(enroll -> ResponseGetUserEnrollClass.builder()
+                .enrollSeq(enroll.getEnrollSeq())
+                .userId(enroll.getUser().getUserId())
+                .build()
+        );
 
     }
 

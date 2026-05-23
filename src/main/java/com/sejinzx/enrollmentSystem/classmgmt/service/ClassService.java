@@ -172,7 +172,7 @@ public class ClassService {
      * 강의 신청 가능 여부 확인
      */
     @Transactional
-    public ClassEntity validateCapacity(Long classSeq) {
+    public ClassEntity getAvailableClassWithLock(Long classSeq) {
 
         // 1. 강의 유무 확인
         ClassEntity classEntity = classRepository.findByIdWithLock(classSeq)
@@ -196,7 +196,7 @@ public class ClassService {
     }
 
     /**
-     *
+     * 클래스 상태 변경
      */
     @Transactional
     public void updateClassState() {
@@ -220,6 +220,24 @@ public class ClassService {
                 );
 
         closedClasses.forEach(ClassEntity::closeClass);
+
+    }
+
+    /**
+     * 본인이 개설한 강의인지 확인
+     */
+    public ClassEntity getValidateMyClass(Long classSeq, Long userSeq) {
+
+        // 1. 본인 강의 여부 확인
+        return classRepository
+                .findByClassSeqAndUser_UserSeqAndClassDeletedFalse(
+                        classSeq,
+                        userSeq
+                )
+                .orElseThrow(() ->
+                        new RuntimeException("User's Class not found")
+                );
+
     }
 
 }
