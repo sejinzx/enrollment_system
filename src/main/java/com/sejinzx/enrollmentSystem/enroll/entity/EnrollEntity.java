@@ -70,4 +70,11 @@ public class EnrollEntity {
         this.enrollState = EnrollState.CONFIRMED;
     }
 
+    /**
+     * 테스트용 수정일 변경
+     */
+    public void changeUpdateDate(LocalDate date) {
+        this.enrollUpdateDate = date;
+    }
+
 }

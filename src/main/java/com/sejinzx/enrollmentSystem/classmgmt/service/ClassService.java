@@ -46,26 +46,22 @@ public class ClassService {
                 .user(user)
                 .build();
 
-        // 3. 저장
-        ClassEntity saved = classRepository.save(classEntity);
-
-        return saved.getClassSeq();
+        return classRepository.save(classEntity).getClassSeq();
     }
 
     /**
      * 강의 수정
      */
+    @Transactional
     public Long updateClass(Long classSeq,
                                    RequestUpdateClass requestUpdateClass,
                                    String userId) {
 
-        // 1. 강의 유무 확인
-        ClassEntity classEntity = getClass(classSeq);
+        // 1. 사용자 조회
+        Long userSeq = userService.getUser(userId).getUserSeq();
 
-        // 2. 본인 글인지 확인
-        if (!classEntity.getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("본인 글만 수정 가능");
-        }
+        // 2. 본인 강의 확인
+        ClassEntity classEntity = getValidateMyClass(classSeq, userSeq);
 
         // 3. 강의 수정
         classEntity.updateClass(
@@ -78,10 +74,7 @@ public class ClassService {
                 requestUpdateClass.getClassState()
         );
 
-        // 4. 저장
-        ClassEntity saved = classRepository.save(classEntity);
-
-        return saved.getClassSeq();
+        return classEntity.getClassSeq();
     }
 
     /**
@@ -92,26 +85,15 @@ public class ClassService {
         // 1. 페이징 조건 설정
         Pageable pageable = PageRequest.of(page, size);
 
-        Page<ClassEntity> result;
+        Page<ClassEntity> result =
+                (state == null)
+                        // 2-1. 강의 상태 없을 경우 전체 조회
+                        ? classRepository.findByClassDeletedFalse(pageable)
+                        // 2-2. 강의 상태 별 조회
+                        : classRepository.findByClassStateAndClassDeletedFalse(state, pageable);
 
-        // 2-1. 강의 상태 없을 경우 전체 조회
-        if (state == null) {
-            result = classRepository.findByClassDeletedFalse(pageable);
-        }
-        // 2-2. 강의 상태 별 조회
-        else {
-            result = classRepository.findByClassStateAndClassDeletedFalse(state, pageable);
-        }
-
-        // 3. Entity -> DTO 변환
-        return result.map(classEntity -> ResponseGetClass.builder()
-                .classSeq(classEntity.getClassSeq())
-                .classTitle(classEntity.getClassTitle())
-                .classState(classEntity.getClassState())
-                .classPrice(classEntity.getClassPrice())
-                .classMaxCap(classEntity.getClassMaxCap())
-                .build());
-
+        // 2. Entity -> DTO 변환
+        return result.map(this::toResponseGetClass);
     }
 
     /**
@@ -119,57 +101,40 @@ public class ClassService {
      */
     public ResponseGetDetailClass getDetailClass(Long classSeq) {
 
-        // 1. 강의 유무 확인
-        ClassEntity classEntity = getClass(classSeq);
-
-        // 2. Entity -> DTO 변환
-        return ResponseGetDetailClass.builder()
-                .classSeq(classEntity.getClassSeq())
-                .classTitle(classEntity.getClassTitle())
-                .classContent(classEntity.getClassContent())
-                .classState(classEntity.getClassState())
-                .classCurrApps(classEntity.getClassCurrApps())
-                .classEndDate(classEntity.getClassEndDate())
-                .classStartDate(classEntity.getClassStartDate())
-                .classPrice(classEntity.getClassPrice())
-                .classMaxCap(classEntity.getClassMaxCap())
-                .build();
-
+        return toResponseGetDetailClass(
+                getClass(classSeq)
+        );
     }
 
     /**
      * 강의 삭제 (soft delete)
      */
+    @Transactional
     public Long deleteClass(Long classSeq, String userId) {
 
-        // 1. 강의 유무 확인
-        ClassEntity classEntity = getClass(classSeq);
+        // 1. 사용자 조회
+        Long userSeq = userService.getUser(userId).getUserSeq();
 
-        // 2. 본인 글인지 확인
-        if (!classEntity.getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("본인 글만 삭제 가능");
-        }
+        // 2. 본인 강의 확인
+        ClassEntity classEntity = getValidateMyClass(classSeq, userSeq);
 
         // 3. classDeleted: false -> true 변경
         classEntity.deleteClass();
 
-        // 4. 저장
-        ClassEntity saved = classRepository.save(classEntity);
-
-        return saved.getClassSeq();
-
+        return classEntity.getClassSeq();
     }
 
     /**
      * 강의 정보 조회
      */
     public ClassEntity getClass(Long classSeq) {
+
         return classRepository.findByClassSeqAndClassDeletedFalse(classSeq)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
     }
 
     /**
-     * 강의 신청 가능 여부 확인
+     * 신청 가능 강의 조회
      */
     @Transactional
     public ClassEntity getAvailableClassWithLock(Long classSeq) {
@@ -178,21 +143,26 @@ public class ClassService {
         ClassEntity classEntity = classRepository.findByIdWithLock(classSeq)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
 
-        // 2. 강의 신청 가능 상태 확인
+        validateEnrollAvailable(classEntity);
+
+        classEntity.increaseCurrApps();
+
+        return classEntity;
+    }
+
+    /**
+     * 신청 가능 여부 검증
+     */
+    private void validateEnrollAvailable(ClassEntity classEntity) {
+
         if (classEntity.getClassState() != ClassState.OPEN) {
             throw new RuntimeException("신청 불가 상태");
         }
 
-        // 3. 정원 초과 여부 확인
-        if (classEntity.getClassCurrApps() >= classEntity.getClassMaxCap()) {
+        if (classEntity.getClassCurrApps()
+                >= classEntity.getClassMaxCap()) {
             throw new RuntimeException("정원 초과");
         }
-
-        // 4. 현재 신청 인원 증가
-        classEntity.increaseCurrApps();
-
-        return classEntity;
-
     }
 
     /**
@@ -204,40 +174,53 @@ public class ClassService {
         LocalDate today = LocalDate.now();
 
         // 1. 모집 예정 -> 모집중 변경
-        List<ClassEntity> openClasses =
-                classRepository.findByClassStateAndClassStartDateLessThanEqual(
-                        ClassState.DRAFT,
-                        today
-                );
-
-        openClasses.forEach(ClassEntity::openClass);
+        classRepository.findByClassStateAndClassStartDateLessThanEqual(ClassState.DRAFT, today)
+                .forEach(ClassEntity::openClass);
 
         // 2. 모집중 -> 모집 종료 변경
-        List<ClassEntity> closedClasses =
-                classRepository.findByClassStateAndClassEndDateBefore(
-                        ClassState.OPEN,
-                        today
-                );
-
-        closedClasses.forEach(ClassEntity::closeClass);
-
+        classRepository.findByClassStateAndClassEndDateBefore(ClassState.OPEN, today)
+                .forEach(ClassEntity::closeClass);
     }
 
     /**
-     * 본인이 개설한 강의인지 확인
+     * 본인 강의 확인
      */
     public ClassEntity getValidateMyClass(Long classSeq, Long userSeq) {
 
         // 1. 본인 강의 여부 확인
-        return classRepository
-                .findByClassSeqAndUser_UserSeqAndClassDeletedFalse(
-                        classSeq,
-                        userSeq
-                )
-                .orElseThrow(() ->
-                        new RuntimeException("User's Class not found")
-                );
-
+        return classRepository.findByClassSeqAndUser_UserSeqAndClassDeletedFalse(classSeq, userSeq)
+                .orElseThrow(() -> new RuntimeException("User's Class not found"));
     }
 
+    /**
+     * Entity -> DTO
+     */
+    private ResponseGetClass toResponseGetClass(ClassEntity classEntity) {
+
+        return ResponseGetClass.builder()
+                .classSeq(classEntity.getClassSeq())
+                .classTitle(classEntity.getClassTitle())
+                .classState(classEntity.getClassState())
+                .classPrice(classEntity.getClassPrice())
+                .classMaxCap(classEntity.getClassMaxCap())
+                .build();
+    }
+
+    /**
+     * Entity -> DTO
+     */
+    private ResponseGetDetailClass toResponseGetDetailClass(ClassEntity classEntity) {
+
+        return ResponseGetDetailClass.builder()
+                .classSeq(classEntity.getClassSeq())
+                .classTitle(classEntity.getClassTitle())
+                .classContent(classEntity.getClassContent())
+                .classState(classEntity.getClassState())
+                .classCurrApps(classEntity.getClassCurrApps())
+                .classEndDate(classEntity.getClassEndDate())
+                .classStartDate(classEntity.getClassStartDate())
+                .classPrice(classEntity.getClassPrice())
+                .classMaxCap(classEntity.getClassMaxCap())
+                .build();
+    }
 }
