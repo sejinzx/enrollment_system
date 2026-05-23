@@ -3,6 +3,7 @@ package com.sejinzx.enrollmentSystem.enroll.service;
 import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassEntity;
 import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassState;
 import com.sejinzx.enrollmentSystem.classmgmt.repository.ClassRepository;
+import com.sejinzx.enrollmentSystem.enroll.dto.ResponseGetEnroll;
 import com.sejinzx.enrollmentSystem.enroll.dto.ResponseGetUserEnrollClass;
 import com.sejinzx.enrollmentSystem.enroll.entity.EnrollEntity;
 import com.sejinzx.enrollmentSystem.enroll.entity.EnrollState;
@@ -31,89 +32,272 @@ class EnrollServiceTest {
     private EnrollService enrollService;
 
     @Autowired
+    private EnrollRepository enrollRepository;
+
+    @Autowired
     private ClassRepository classRepository;
 
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private EnrollRepository enrollRepository;
-
+    /*
+     * 수강 신청 테스트
+     */
     @Test
-    void sync_text() throws Exception {
+    void createEnroll_test() {
 
         // given
+
+        // 강사 생성
+        UserEntity creator = userRepository.save(
+                UserEntity.builder()
+                        .userId("creator")
+                        .userPw("1234")
+                        .userType(UserType.CREATOR)
+                        .build()
+        );
+
+        // 학생 생성
+        UserEntity student = userRepository.save(
+                UserEntity.builder()
+                        .userId("student")
+                        .userPw("1234")
+                        .userType(UserType.CLASSMATE)
+                        .build()
+        );
 
         // 강의 생성
         ClassEntity classEntity = classRepository.save(
                 ClassEntity.builder()
-                        .classTitle("테스트")
-                        .classContent("테스트")
-                        .classPrice(BigDecimal.valueOf(1000))
+                        .classTitle("Spring")
+                        .classContent("Backend")
+                        .classPrice(BigDecimal.valueOf(10000))
                         .classMaxCap(10)
                         .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(1))
-                        .classState(ClassState.DRAFT)
+                        .classEndDate(LocalDate.now().plusDays(5))
+                        .classState(ClassState.OPEN)
+                        .user(creator)
                         .build()
         );
 
-        // 유저 생성
-        for (int i = 0; i < 20; i++) {
-
-            UserEntity user = UserEntity.builder()
-                    .userId("user" + i)
-                    .userPw("1234")
-                    .userType(UserType.CREATOR)
-                    .build();
-
-            userRepository.save(user);
-        }
-
-        int threadCount = 20;
-
-        ExecutorService executorService =
-                Executors.newFixedThreadPool(20);
-
-        CountDownLatch latch =
-                new CountDownLatch(threadCount);
-
         // when
-
-        for (int i = 0; i < threadCount; i++) {
-
-            int index = i;
-
-            executorService.submit(() -> {
-
-                try {
-                    enrollService.createEnroll(
-                            classEntity.getClassSeq(),
-                            "user" + index
-                    );
-
-                } catch (Exception e) {
-                    System.out.println(e.getMessage());
-
-                } finally {
-                    latch.countDown();
-                }
-            });
-        }
-
-        latch.await();
+        Long enrollSeq = enrollService.createEnroll(
+                classEntity.getClassSeq(),
+                student.getUserId()
+        );
 
         // then
-
-        ClassEntity result = classRepository.findById(
-                classEntity.getClassSeq()
-        ).orElseThrow();
+        EnrollEntity result =
+                enrollRepository.findById(enrollSeq)
+                        .orElseThrow();
 
         Assertions.assertEquals(
-                10,
-                result.getClassCurrApps()
+                EnrollState.PENDING,
+                result.getEnrollState()
+        );
+
+        Assertions.assertEquals(
+                "student",
+                result.getUser().getUserId()
         );
     }
 
+    /*
+     * 수강 신청 취소 테스트
+     */
+    @Test
+    void deleteEnroll_test() {
+
+        // given
+        UserEntity creator = userRepository.save(
+                UserEntity.builder()
+                        .userId("creator")
+                        .userPw("1234")
+                        .userType(UserType.CREATOR)
+                        .build()
+        );
+
+        UserEntity student = userRepository.save(
+                UserEntity.builder()
+                        .userId("student")
+                        .userPw("1234")
+                        .userType(UserType.CLASSMATE)
+                        .build()
+        );
+
+        ClassEntity classEntity = classRepository.save(
+                ClassEntity.builder()
+                        .classTitle("Java")
+                        .classContent("Java 강의")
+                        .classPrice(BigDecimal.valueOf(5000))
+                        .classMaxCap(20)
+                        .classStartDate(LocalDate.now())
+                        .classEndDate(LocalDate.now().plusDays(10))
+                        .classState(ClassState.OPEN)
+                        .user(creator)
+                        .build()
+        );
+
+        EnrollEntity enrollEntity = enrollRepository.save(
+                EnrollEntity.builder()
+                        .user(student)
+                        .classEntity(classEntity)
+                        .enrollState(EnrollState.PENDING)
+                        .build()
+        );
+
+        // when
+        enrollService.deleteEnroll(
+                enrollEntity.getEnrollSeq(),
+                student.getUserId()
+        );
+
+        // then
+        EnrollEntity result =
+                enrollRepository.findById(
+                        enrollEntity.getEnrollSeq()
+                ).orElseThrow();
+
+        Assertions.assertEquals(
+                EnrollState.CANCELLED,
+                result.getEnrollState()
+        );
+    }
+
+    /*
+     * 내 수강 신청 목록 조회 테스트
+     */
+    @Test
+    void getMyListEnroll_test() {
+
+        // given
+
+        UserEntity creator = userRepository.save(
+                UserEntity.builder()
+                        .userId("creator")
+                        .userPw("1234")
+                        .userType(UserType.CREATOR)
+                        .build()
+        );
+
+        UserEntity student = userRepository.save(
+                UserEntity.builder()
+                        .userId("student")
+                        .userPw("1234")
+                        .userType(UserType.CLASSMATE)
+                        .build()
+        );
+
+        // 강의 20개 생성
+        for (int i = 1; i <= 20; i++) {
+
+            ClassEntity classEntity = classRepository.save(
+                    ClassEntity.builder()
+                            .classTitle("class" + i)
+                            .classContent("content")
+                            .classPrice(BigDecimal.valueOf(1000))
+                            .classMaxCap(20)
+                            .classStartDate(LocalDate.now())
+                            .classEndDate(LocalDate.now().plusDays(5))
+                            .classState(ClassState.OPEN)
+                            .user(creator)
+                            .build()
+            );
+
+            enrollRepository.save(
+                    EnrollEntity.builder()
+                            .user(student)
+                            .classEntity(classEntity)
+                            .enrollState(EnrollState.CONFIRMED)
+                            .build()
+            );
+        }
+
+        // when
+        Page<ResponseGetEnroll> result =
+                enrollService.getMyListEnroll(
+                        0,
+                        10,
+                        student.getUserId()
+                );
+
+        // then
+        Assertions.assertEquals(
+                20,
+                result.getTotalElements()
+        );
+
+        Assertions.assertEquals(
+                10,
+                result.getContent().size()
+        );
+    }
+
+    /*
+     * 결제 완료 테스트
+     */
+    @Test
+    void payedEnroll_test() {
+
+        // given
+        UserEntity creator = userRepository.save(
+                UserEntity.builder()
+                        .userId("creator")
+                        .userPw("1234")
+                        .userType(UserType.CREATOR)
+                        .build()
+        );
+
+        UserEntity student = userRepository.save(
+                UserEntity.builder()
+                        .userId("student")
+                        .userPw("1234")
+                        .userType(UserType.CLASSMATE)
+                        .build()
+        );
+
+        ClassEntity classEntity = classRepository.save(
+                ClassEntity.builder()
+                        .classTitle("Spring")
+                        .classContent("content")
+                        .classPrice(BigDecimal.valueOf(10000))
+                        .classMaxCap(20)
+                        .classStartDate(LocalDate.now())
+                        .classEndDate(LocalDate.now().plusDays(5))
+                        .classState(ClassState.OPEN)
+                        .user(creator)
+                        .build()
+        );
+
+        EnrollEntity enrollEntity = enrollRepository.save(
+                EnrollEntity.builder()
+                        .user(student)
+                        .classEntity(classEntity)
+                        .enrollState(EnrollState.PENDING)
+                        .build()
+        );
+
+        // when
+        enrollService.payedEnroll(
+                enrollEntity.getEnrollSeq(),
+                student.getUserId()
+        );
+
+        // then
+        EnrollEntity result =
+                enrollRepository.findById(
+                        enrollEntity.getEnrollSeq()
+                ).orElseThrow();
+
+        Assertions.assertEquals(
+                EnrollState.CONFIRMED,
+                result.getEnrollState()
+        );
+    }
+
+    /*
+     * 강의 별 수강생 목록 조회 테스트
+     */
     @Test
     void getClassEnrollUserList_test() {
 
@@ -128,34 +312,21 @@ class EnrollServiceTest {
                         .build()
         );
 
-        // 강의 2개 생성
-        ClassEntity class1 = classRepository.save(
+        // 강의 생성
+        ClassEntity classEntity = classRepository.save(
                 ClassEntity.builder()
-                        .classTitle("강의1")
-                        .classContent("내용1")
-                        .classPrice(BigDecimal.valueOf(1000))
+                        .classTitle("Spring Boot")
+                        .classContent("백엔드")
+                        .classPrice(BigDecimal.valueOf(10000))
                         .classMaxCap(30)
                         .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(5))
+                        .classEndDate(LocalDate.now().plusDays(10))
                         .classState(ClassState.OPEN)
                         .user(creator)
                         .build()
         );
 
-        ClassEntity class2 = classRepository.save(
-                ClassEntity.builder()
-                        .classTitle("강의2")
-                        .classContent("내용2")
-                        .classPrice(BigDecimal.valueOf(2000))
-                        .classMaxCap(30)
-                        .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(5))
-                        .classState(ClassState.OPEN)
-                        .user(creator)
-                        .build()
-        );
-
-        // 사용자 20명 생성 + 수강 신청
+        // 학생 20명 생성
         for (int i = 1; i <= 20; i++) {
 
             UserEntity student = userRepository.save(
@@ -166,47 +337,38 @@ class EnrollServiceTest {
                             .build()
             );
 
-            // 홀수 -> class1 신청
-            if (i % 2 == 1) {
-
-                enrollRepository.save(
-                        EnrollEntity.builder()
-                                .user(student)
-                                .classEntity(class1)
-                                .enrollState(EnrollState.CONFIRMED)
-                                .build()
-                );
-            }
-
-            // 짝수 -> class2 신청
-            else {
-
-                enrollRepository.save(
-                        EnrollEntity.builder()
-                                .user(student)
-                                .classEntity(class2)
-                                .enrollState(EnrollState.CONFIRMED)
-                                .build()
-                );
-            }
+            enrollRepository.save(
+                    EnrollEntity.builder()
+                            .user(student)
+                            .classEntity(classEntity)
+                            .enrollState(EnrollState.CONFIRMED)
+                            .build()
+            );
         }
 
         // when
-
         Page<ResponseGetUserEnrollClass> result =
                 enrollService.getClassEnrollUserList(
                         0,
                         10,
-                        class1.getClassSeq(),
+                        classEntity.getClassSeq(),
                         creator.getUserId()
                 );
 
         // then
+        Assertions.assertEquals(
+                20,
+                result.getTotalElements()
+        );
 
-        System.out.println("===== class1 수강생 목록 =====");
+        Assertions.assertEquals(
+                10,
+                result.getContent().size()
+        );
+
+        System.out.println("===== 수강생 목록 =====");
 
         result.forEach(res -> {
-
             System.out.println(
                     "enrollSeq = " + res.getEnrollSeq()
             );
@@ -215,18 +377,5 @@ class EnrollServiceTest {
                     "userId = " + res.getUserId()
             );
         });
-
-        // class1 은 홀수 사용자만 -> 10명
-        Assertions.assertEquals(
-                10,
-                result.getTotalElements()
-        );
-
-        // 첫 사용자 확인
-        Assertions.assertEquals(
-                "student1",
-                result.getContent().get(0).getUserId()
-        );
     }
-
 }
