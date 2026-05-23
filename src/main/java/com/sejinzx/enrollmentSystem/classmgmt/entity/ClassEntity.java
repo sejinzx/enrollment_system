@@ -15,7 +15,7 @@ import java.time.LocalDate;
 @Entity
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "class")
+@Table(name = "classes")
 public class ClassEntity {
 
     @Id
@@ -103,6 +103,20 @@ public class ClassEntity {
      */
     public void increaseCurrApps() {
         this.classCurrApps++;
+    }
+
+    /**
+     * 모집 시작
+     */
+    public void openClass() {
+        this.classState = ClassState.OPEN;
+    }
+
+    /**
+     * 모집 종료
+     */
+    public void closeClass() {
+        this.classState = ClassState.CLOSED;
     }
 
 }
