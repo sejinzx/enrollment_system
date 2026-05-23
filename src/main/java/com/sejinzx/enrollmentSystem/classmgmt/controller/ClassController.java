@@ -29,8 +29,8 @@ public class ClassController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(
-                        Map.of("classSeq: ", classService.createClass(requestAddClass, userId),
-                        "message: ", "강의 등록 완료" )
+                        Map.of("classSeq", classService.createClass(requestAddClass, userId),
+                        "message", "강의 등록 완료" )
                 );
 
     }
@@ -44,8 +44,8 @@ public class ClassController {
         String userId = auth.getName();
 
         return ResponseEntity.ok(
-                Map.of("classSeq: ", classService.updateClass(classSeq, requestUpdateClass, userId),
-                        "message: ", "강의 수정 완료" )
+                Map.of("classSeq", classService.updateClass(classSeq, requestUpdateClass, userId),
+                        "message", "강의 수정 완료" )
         );
 
     }
@@ -81,8 +81,8 @@ public class ClassController {
         String userId = auth.getName();
 
         return ResponseEntity.ok(
-                Map.of("classSeq: ", classService.deleteClass(classSeq, userId),
-                        "message: ", "강의 삭제 완료" )
+                Map.of("classSeq", classService.deleteClass(classSeq, userId),
+                        "message", "강의 삭제 완료" )
         );
 
     }
