@@ -14,6 +14,5 @@ public class RequestAddClass {
     private int classMaxCap;
     private LocalDate classStartDate;
     private LocalDate classEndDate;
-    private ClassState classState;
 
 }

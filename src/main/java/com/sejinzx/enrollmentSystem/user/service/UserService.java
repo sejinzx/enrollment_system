@@ -4,6 +4,7 @@ import com.sejinzx.enrollmentSystem.config.JwtTokenProvider;
 import com.sejinzx.enrollmentSystem.user.dto.RequestAddUser;
 import com.sejinzx.enrollmentSystem.user.dto.RequestLogin;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
+import com.sejinzx.enrollmentSystem.user.entity.UserType;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -91,6 +92,22 @@ public class UserService {
     public UserEntity getUser(String userId) {
         return userRepository.findByUserIdAndUserDeletedFalse(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    }
+
+    /**
+     * User Type 확인
+     */
+    public UserEntity validateCreator(String userId) {
+
+        // 1. 사용자 유무 확인
+        UserEntity user = getUser(userId);
+
+        // 2. 사용자 Type 확인
+        if (user.getUserType() != UserType.CREATOR) {
+            throw new RuntimeException("권한 없음");
+        }
+
+        return user;
     }
 
 }
