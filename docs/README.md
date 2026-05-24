@@ -165,8 +165,9 @@ Controller는 요청/응답 처리만 담당하고, 실제 검증 및 상태 변
 ---
 
 ### API 명세
+[API 명세 문서](./docs/API-DESC.md)
 
 ---
 
 ### DB 스키마
-
+[DB 스키마 문서](./docs/DB-SCHEMA.md)
