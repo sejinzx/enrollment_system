@@ -123,7 +123,6 @@ class ClassServiceTest {
                         .classMaxCap(30)
                         .classStartDate(LocalDate.now())
                         .classEndDate(LocalDate.now().plusDays(15))
-                        .classState(ClassState.OPEN)
                         .build();
 
         // when
@@ -197,7 +196,6 @@ class ClassServiceTest {
                         .classMaxCap(99)
                         .classStartDate(LocalDate.now())
                         .classEndDate(LocalDate.now().plusDays(20))
-                        .classState(ClassState.OPEN)
                         .build();
 
         // when

@@ -7,6 +7,8 @@ import com.sejinzx.enrollmentSystem.classmgmt.dto.ResponseGetDetailClass;
 import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassEntity;
 import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassState;
 import com.sejinzx.enrollmentSystem.classmgmt.repository.ClassRepository;
+import com.sejinzx.enrollmentSystem.error.BusinessException;
+import com.sejinzx.enrollmentSystem.error.ErrorCode;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.service.UserService;
 import jakarta.transaction.Transactional;
@@ -17,7 +19,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -53,25 +54,28 @@ public class ClassService {
      * 강의 수정
      */
     @Transactional
-    public Long updateClass(Long classSeq,
-                                   RequestUpdateClass requestUpdateClass,
-                                   String userId) {
+    public Long updateClass(Long classSeq, RequestUpdateClass requestUpdateClass, String userId) {
 
         // 1. 사용자 조회
-        Long userSeq = userService.getUser(userId).getUserSeq();
+        Long userSeq = userService.findActiveUser(userId).getUserSeq();
 
         // 2. 본인 강의 확인
         ClassEntity classEntity = getValidateMyClass(classSeq, userSeq);
 
-        // 3. 강의 수정
+        // 3. 모집 상태에 따른 수정 여부 확인
+        if(classEntity.getClassState() == ClassState.OPEN ||
+                classEntity.getClassState() == ClassState.CLOSED) {
+            throw new BusinessException(ErrorCode.CLASS_MODIFICATION_NOT_ALLOWED);
+        }
+
+        // 4. 강의 수정
         classEntity.updateClass(
                 requestUpdateClass.getClassTitle(),
                 requestUpdateClass.getClassContent(),
                 requestUpdateClass.getClassPrice(),
                 requestUpdateClass.getClassMaxCap(),
                 requestUpdateClass.getClassStartDate(),
-                requestUpdateClass.getClassEndDate(),
-                requestUpdateClass.getClassState()
+                requestUpdateClass.getClassEndDate()
         );
 
         return classEntity.getClassSeq();
@@ -101,9 +105,7 @@ public class ClassService {
      */
     public ResponseGetDetailClass getDetailClass(Long classSeq) {
 
-        return toResponseGetDetailClass(
-                getClass(classSeq)
-        );
+        return toResponseGetDetailClass(getClass(classSeq));
     }
 
     /**
@@ -113,7 +115,7 @@ public class ClassService {
     public Long deleteClass(Long classSeq, String userId) {
 
         // 1. 사용자 조회
-        Long userSeq = userService.getUser(userId).getUserSeq();
+        Long userSeq = userService.findActiveUser(userId).getUserSeq();
 
         // 2. 본인 강의 확인
         ClassEntity classEntity = getValidateMyClass(classSeq, userSeq);
@@ -130,7 +132,7 @@ public class ClassService {
     public ClassEntity getClass(Long classSeq) {
 
         return classRepository.findByClassSeqAndClassDeletedFalse(classSeq)
-                .orElseThrow(() -> new RuntimeException("Class not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CLASS_NOT_FOUND));
     }
 
     /**
@@ -141,7 +143,7 @@ public class ClassService {
 
         // 1. 강의 유무 확인
         ClassEntity classEntity = classRepository.findByIdWithLock(classSeq)
-                .orElseThrow(() -> new RuntimeException("Class not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CLASS_NOT_FOUND));
 
         validateEnrollAvailable(classEntity);
 
@@ -155,13 +157,15 @@ public class ClassService {
      */
     private void validateEnrollAvailable(ClassEntity classEntity) {
 
+        // 강의가 오픈되지 않은 경우
         if (classEntity.getClassState() != ClassState.OPEN) {
-            throw new RuntimeException("신청 불가 상태");
+            throw new BusinessException(ErrorCode.CLASS_NOT_OPEN);
         }
 
+        // 강의 정원을 초과한 경우
         if (classEntity.getClassCurrApps()
                 >= classEntity.getClassMaxCap()) {
-            throw new RuntimeException("정원 초과");
+            throw new BusinessException(ErrorCode.CLASS_CAPACITY_FULL);
         }
     }
 
@@ -187,9 +191,8 @@ public class ClassService {
      */
     public ClassEntity getValidateMyClass(Long classSeq, Long userSeq) {
 
-        // 1. 본인 강의 여부 확인
         return classRepository.findByClassSeqAndUser_UserSeqAndClassDeletedFalse(classSeq, userSeq)
-                .orElseThrow(() -> new RuntimeException("User's Class not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USERS_CLASS_NOT_FOUND));
     }
 
     /**

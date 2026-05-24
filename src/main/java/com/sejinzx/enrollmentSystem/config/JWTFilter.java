@@ -1,5 +1,6 @@
 package com.sejinzx.enrollmentSystem.config;
 
+import com.sejinzx.enrollmentSystem.error.JwtAuthenticationException;
 import com.sejinzx.enrollmentSystem.user.entity.CustomUserDetails;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
@@ -15,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -22,15 +24,28 @@ public class JWTFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
 
+    private boolean isWhiteList(String path) {
+        return path.startsWith("/api/users")
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs");
+    }
+
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String path = request.getRequestURI();
+
+        if (isWhiteList(path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         // Authorization 헤더에서 JWT 토큰 추출
         String authorizationHeader = request.getHeader("Authorization");
 
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
+            throw new JwtAuthenticationException("JWT 토큰이 없습니다");
         }
 
         // Bearer 이후의 토큰 값만 추출

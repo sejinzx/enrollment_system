@@ -16,7 +16,7 @@ public class Config {
     public GroupedOpenApi userApi() {
         return GroupedOpenApi.builder()
                 .group("user")
-                .pathsToMatch("/api/user/**")
+                .pathsToMatch("/api/users/**")
                 .build();
     }
 
@@ -24,7 +24,7 @@ public class Config {
     public GroupedOpenApi classApi() {
         return GroupedOpenApi.builder()
                 .group("class")
-                .pathsToMatch("/api/class/**")
+                .pathsToMatch("/api/classes/**")
                 .build();
     }
 
@@ -32,7 +32,7 @@ public class Config {
     public GroupedOpenApi enrollApi() {
         return GroupedOpenApi.builder()
                 .group("enroll")
-                .pathsToMatch("/api/enroll/**")
+                .pathsToMatch("/api/enrollments/**")
                 .build();
     }
 

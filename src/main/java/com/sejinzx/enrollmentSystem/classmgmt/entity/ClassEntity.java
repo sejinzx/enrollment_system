@@ -80,15 +80,13 @@ public class ClassEntity {
      * 강의 수정 메서드
      */
     public void updateClass(String classTitle, String classContent, BigDecimal classPrice,
-                            int classMaxCap, LocalDate classStartDate, LocalDate classEndDate,
-                            ClassState classState) {
+                            int classMaxCap, LocalDate classStartDate, LocalDate classEndDate) {
         this.classTitle = classTitle;
         this.classContent = classContent;
         this.classPrice = classPrice;
         this.classMaxCap = classMaxCap;
         this.classStartDate = classStartDate;
         this.classEndDate = classEndDate;
-        this.classState = classState;
     }
 
     /**
@@ -118,5 +116,10 @@ public class ClassEntity {
     public void closeClass() {
         this.classState = ClassState.CLOSED;
     }
+
+    /**
+     * 모집 상태 변경
+     */
+    public void updateClassState(ClassState classState) { this.classState = classState; }
 
 }

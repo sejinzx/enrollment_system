@@ -6,6 +6,7 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
 
-    Optional<UserEntity> findByUserIdAndUserDeletedFalse(String userSeq);
+    Optional<UserEntity> findByUserIdAndUserDeletedFalse(String userID);
+    boolean existsByUserIdAndUserDeletedFalse(String userId);
 
 }
