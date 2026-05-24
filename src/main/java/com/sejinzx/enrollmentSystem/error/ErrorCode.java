@@ -7,6 +7,7 @@ public enum ErrorCode {
     FORBIDDEN(403, "권한이 없습니다"),
     CLASS_NOT_OPEN(403, "신청 가능한 상태가 아닙니다"),
     CLASS_MODIFICATION_NOT_ALLOWED(403, "해당 상태에서는 수정할 수 없습니다"),
+    CLASS_DELETE_NOT_ALLOWED(403, "해당 상태에서는 삭제할 수 없습니다"),
     USER_NOT_FOUND(404, "사용자를 찾을 수 없습니다"),
     CLASS_NOT_FOUND(404, "강의를 찾을 수 없습니다"),
     ENROLL_NOT_FOUND(404, "수강 신청 내역을 찾을 수 없습니다"),
