@@ -1,11 +1,12 @@
-package com.sejinzx.enrollmentSystem.user;
+package com.sejinzx.enrollmentSystem.user.service;
 
+import com.sejinzx.enrollmentSystem.error.BusinessException;
+import com.sejinzx.enrollmentSystem.error.ErrorCode;
 import com.sejinzx.enrollmentSystem.user.dto.RequestAddUser;
 import com.sejinzx.enrollmentSystem.user.dto.RequestLogin;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
-import com.sejinzx.enrollmentSystem.user.service.UserService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,10 +40,10 @@ class UserServiceTest {
     private BCryptPasswordEncoder pwEncoder;
 
     /*
-     * 회원가입
+     * 회원가입 성공 테스트
      */
     @Test
-    void createUser_test() {
+    void createUser_success_test() {
 
         // given
         RequestAddUser request = RequestAddUser.builder()
@@ -72,11 +73,12 @@ class UserServiceTest {
                 )
         );
 
+        System.out.println("회원가입 성공");
     }
 
     /*
      * 회원가입 실패 테스트
-     * 예상 결과: ID exists
+     * 예상 결과: 중복 아이디 예외 발생
      */
     @Test
     void createUser_fail_test() {
@@ -97,24 +99,27 @@ class UserServiceTest {
                         .userType(UserType.CLASSMATE)
                         .build();
 
-        // when & then
-        RuntimeException exception =
+        // when
+        BusinessException exception =
                 Assertions.assertThrows(
-                        RuntimeException.class,
+                        BusinessException.class,
                         () -> userService.createUser(request)
                 );
 
+        // then
         Assertions.assertEquals(
-                "ID exists",
-                exception.getMessage()
+                ErrorCode.DUPLICATE_USER_ID,
+                exception.getErrorCode()
         );
+
+        System.out.println("회원가입 실패 - 중복 아이디");
     }
 
     /*
-     * 로그인 테스트
+     * 로그인 성공 테스트
      */
     @Test
-    void loginUser_test() {
+    void loginUser_success_test() {
 
         // given
         String encodedPw =
@@ -122,7 +127,7 @@ class UserServiceTest {
 
         userRepository.save(
                 UserEntity.builder()
-                        .userId("loginUser")
+                        .userId("loginUser1")
                         .userPw(encodedPw)
                         .userType(UserType.CLASSMATE)
                         .build()
@@ -130,7 +135,7 @@ class UserServiceTest {
 
         RequestLogin request =
                 RequestLogin.builder()
-                        .userId("loginUser")
+                        .userId("loginUser1")
                         .userPw("1234")
                         .build();
 
@@ -141,8 +146,49 @@ class UserServiceTest {
         // then
         Assertions.assertNotNull(token);
 
+        System.out.println("로그인 성공");
         System.out.println("JWT Token = " + token);
+    }
 
+    /*
+     * 로그인 실패 테스트
+     * 예상 결과: 비밀번호 불일치
+     */
+    @Test
+    void loginUser_fail_test() {
+
+        // given
+        String encodedPw =
+                pwEncoder.encode("1234");
+
+        userRepository.save(
+                UserEntity.builder()
+                        .userId("loginUser2")
+                        .userPw(encodedPw)
+                        .userType(UserType.CLASSMATE)
+                        .build()
+        );
+
+        RequestLogin request =
+                RequestLogin.builder()
+                        .userId("loginUser2")
+                        .userPw("wrongPw")
+                        .build();
+
+        // when
+        BusinessException exception =
+                Assertions.assertThrows(
+                        BusinessException.class,
+                        () -> userService.loginUser(request)
+                );
+
+        // then
+        Assertions.assertEquals(
+                ErrorCode.INVALID_PASSWORD,
+                exception.getErrorCode()
+        );
+
+        System.out.println("로그인 실패 - 비밀번호 불일치");
     }
 
     /*
@@ -155,24 +201,57 @@ class UserServiceTest {
         // given
         userRepository.save(
                 UserEntity.builder()
-                        .userId("student")
+                        .userId("classmate")
                         .userPw("1234")
                         .userType(UserType.CLASSMATE)
                         .build()
         );
 
-        // when & then
-        RuntimeException exception =
+        // when
+        BusinessException exception =
                 Assertions.assertThrows(
-                        RuntimeException.class,
-                        () -> userService.validateCreator("student")
+                        BusinessException.class,
+                        () -> userService.validateCreator("classmate")
                 );
 
+        // then
         Assertions.assertEquals(
-                "권한 없음",
-                exception.getMessage()
+                ErrorCode.FORBIDDEN,
+                exception.getErrorCode()
         );
 
+        System.out.println("Creator 권한 검증 실패");
     }
 
+    /*
+     * Classmate 권한 실패 테스트
+     * 예상 결과: 권한 없음
+     */
+    @Test
+    void validateClassmate_fail_test() {
+
+        // given
+        userRepository.save(
+                UserEntity.builder()
+                        .userId("creator")
+                        .userPw("1234")
+                        .userType(UserType.CREATOR)
+                        .build()
+        );
+
+        // when
+        BusinessException exception =
+                Assertions.assertThrows(
+                        BusinessException.class,
+                        () -> userService.validateClassmate("creator")
+                );
+
+        // then
+        Assertions.assertEquals(
+                ErrorCode.FORBIDDEN,
+                exception.getErrorCode()
+        );
+
+        System.out.println("Classmate 권한 검증 실패");
+    }
 }

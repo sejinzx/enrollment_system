@@ -6,20 +6,25 @@ import com.sejinzx.enrollmentSystem.classmgmt.repository.ClassRepository;
 import com.sejinzx.enrollmentSystem.enroll.entity.EnrollEntity;
 import com.sejinzx.enrollmentSystem.enroll.entity.EnrollState;
 import com.sejinzx.enrollmentSystem.enroll.repository.EnrollRepository;
+import com.sejinzx.enrollmentSystem.error.BusinessException;
+import com.sejinzx.enrollmentSystem.error.ErrorCode;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Transactional
 class EnrollServiceTest {
 
     @Autowired
@@ -29,47 +34,23 @@ class EnrollServiceTest {
     private EnrollRepository enrollRepository;
 
     @Autowired
-    private ClassRepository classRepository;
-
-    @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private ClassRepository classRepository;
+
     /*
-     * 수강 신청 성공 테스트
-     * 예상 결과: 신청 성공
+     * 수강 신청 성공
      */
     @Test
     void createEnroll_success_test() {
 
         // given
-        UserEntity creator = userRepository.save(
-                UserEntity.builder()
-                        .userId("creator")
-                        .userPw("1234")
-                        .userType(UserType.CREATOR)
-                        .build()
-        );
+        UserEntity creator = createCreator("creator1");
+        UserEntity student = createStudent("student1");
 
-        UserEntity student = userRepository.save(
-                UserEntity.builder()
-                        .userId("student")
-                        .userPw("1234")
-                        .userType(UserType.CLASSMATE)
-                        .build()
-        );
-
-        ClassEntity classEntity = classRepository.save(
-                ClassEntity.builder()
-                        .classTitle("spring")
-                        .classContent("backend")
-                        .classPrice(BigDecimal.valueOf(1000))
-                        .classMaxCap(10)
-                        .classState(ClassState.OPEN)
-                        .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(10))
-                        .user(creator)
-                        .build()
-        );
+        ClassEntity classEntity =
+                createClassEntity(creator, 10);
 
         // when
         Long enrollSeq =
@@ -92,49 +73,26 @@ class EnrollServiceTest {
     }
 
     /*
-     * 정원 초과 테스트
-     * 예상 결과: 정원 초과 예외 발생
+     * 정원 초과 실패
      */
     @Test
     void createEnroll_capacity_fail_test() {
 
         // given
-        UserEntity creator = userRepository.save(
-                UserEntity.builder()
-                        .userId("creator")
-                        .userPw("1234")
-                        .userType(UserType.CREATOR)
-                        .build()
-        );
+        UserEntity creator = createCreator("creator2");
+        UserEntity student = createStudent("student2");
 
-        UserEntity student = userRepository.save(
-                UserEntity.builder()
-                        .userId("student")
-                        .userPw("1234")
-                        .userType(UserType.CLASSMATE)
-                        .build()
-        );
+        ClassEntity classEntity =
+                createClassEntity(creator, 1);
 
-        ClassEntity classEntity = classRepository.save(
-                ClassEntity.builder()
-                        .classTitle("full")
-                        .classContent("full")
-                        .classPrice(BigDecimal.valueOf(1000))
-                        .classMaxCap(1)
-                        .classState(ClassState.OPEN)
-                        .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(5))
-                        .user(creator)
-                        .build()
-        );
+        classEntity.changeCurrApps(1);
 
-        classEntity.increaseCurrApps();
-        classRepository.save(classEntity);
+        classRepository.saveAndFlush(classEntity);
 
         // when
-        RuntimeException exception =
+        BusinessException exception =
                 Assertions.assertThrows(
-                        RuntimeException.class,
+                        BusinessException.class,
                         () -> enrollService.createEnroll(
                                 classEntity.getClassSeq(),
                                 student.getUserId()
@@ -143,49 +101,25 @@ class EnrollServiceTest {
 
         // then
         Assertions.assertEquals(
-                "정원 초과",
-                exception.getMessage()
+                ErrorCode.CLASS_CAPACITY_FULL,
+                exception.getErrorCode()
         );
 
-        System.out.println("정원 초과 예외 발생");
+        System.out.println("정원 초과 실패");
     }
 
     /*
-     * 중복 신청 테스트
-     * 예상 결과: 이미 신청한 강의 예외 발생
+     * 중복 신청 실패
      */
     @Test
     void createEnroll_duplicate_fail_test() {
 
         // given
-        UserEntity creator = userRepository.save(
-                UserEntity.builder()
-                        .userId("creator")
-                        .userPw("1234")
-                        .userType(UserType.CREATOR)
-                        .build()
-        );
+        UserEntity creator = createCreator("creator3");
+        UserEntity student = createStudent("student3");
 
-        UserEntity student = userRepository.save(
-                UserEntity.builder()
-                        .userId("student")
-                        .userPw("1234")
-                        .userType(UserType.CLASSMATE)
-                        .build()
-        );
-
-        ClassEntity classEntity = classRepository.save(
-                ClassEntity.builder()
-                        .classTitle("java")
-                        .classContent("java")
-                        .classPrice(BigDecimal.valueOf(1000))
-                        .classMaxCap(10)
-                        .classState(ClassState.OPEN)
-                        .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(5))
-                        .user(creator)
-                        .build()
-        );
+        ClassEntity classEntity =
+                createClassEntity(creator, 10);
 
         enrollRepository.save(
                 EnrollEntity.builder()
@@ -196,9 +130,9 @@ class EnrollServiceTest {
         );
 
         // when
-        RuntimeException exception =
+        BusinessException exception =
                 Assertions.assertThrows(
-                        RuntimeException.class,
+                        BusinessException.class,
                         () -> enrollService.createEnroll(
                                 classEntity.getClassSeq(),
                                 student.getUserId()
@@ -207,57 +141,34 @@ class EnrollServiceTest {
 
         // then
         Assertions.assertEquals(
-                "이미 신청한 강의",
-                exception.getMessage()
+                ErrorCode.DUPLICATE_ENROLL,
+                exception.getErrorCode()
         );
 
-        System.out.println("중복 신청 예외 발생");
+        System.out.println("중복 신청 실패");
     }
 
     /*
-     * 수강 취소 성공 테스트
-     * 예상 결과: 취소 성공
+     * 수강 취소 성공
      */
     @Test
     void deleteEnroll_success_test() {
 
         // given
-        UserEntity creator = userRepository.save(
-                UserEntity.builder()
-                        .userId("creator")
-                        .userPw("1234")
-                        .userType(UserType.CREATOR)
-                        .build()
-        );
+        UserEntity creator = createCreator("creator4");
+        UserEntity student = createStudent("student4");
 
-        UserEntity student = userRepository.save(
-                UserEntity.builder()
-                        .userId("student")
-                        .userPw("1234")
-                        .userType(UserType.CLASSMATE)
-                        .build()
-        );
+        ClassEntity classEntity =
+                createClassEntity(creator, 10);
 
-        ClassEntity classEntity = classRepository.save(
-                ClassEntity.builder()
-                        .classTitle("cancel")
-                        .classContent("cancel")
-                        .classPrice(BigDecimal.valueOf(1000))
-                        .classMaxCap(10)
-                        .classState(ClassState.OPEN)
-                        .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(5))
-                        .user(creator)
-                        .build()
-        );
-
-        EnrollEntity enrollEntity = enrollRepository.save(
-                EnrollEntity.builder()
-                        .user(student)
-                        .classEntity(classEntity)
-                        .enrollState(EnrollState.PENDING)
-                        .build()
-        );
+        EnrollEntity enrollEntity =
+                enrollRepository.save(
+                        EnrollEntity.builder()
+                                .user(student)
+                                .classEntity(classEntity)
+                                .enrollState(EnrollState.PENDING)
+                                .build()
+                );
 
         // when
         enrollService.deleteEnroll(
@@ -280,58 +191,37 @@ class EnrollServiceTest {
     }
 
     /*
-     * 결제 후 3일 이후 취소 실패 테스트
-     * 예상 결과: 취소 불가 예외 발생
+     * 결제 후 3일 이후 취소 실패
      */
     @Test
     void deleteEnroll_after3days_fail_test() {
 
         // given
-        UserEntity creator = userRepository.save(
-                UserEntity.builder()
-                        .userId("creator")
-                        .userPw("1234")
-                        .userType(UserType.CREATOR)
-                        .build()
-        );
+        UserEntity creator = createCreator("creator5");
+        UserEntity student = createStudent("student5");
 
-        UserEntity student = userRepository.save(
-                UserEntity.builder()
-                        .userId("student")
-                        .userPw("1234")
-                        .userType(UserType.CLASSMATE)
-                        .build()
-        );
+        ClassEntity classEntity =
+                createClassEntity(creator, 10);
 
-        ClassEntity classEntity = classRepository.save(
-                ClassEntity.builder()
-                        .classTitle("pay")
-                        .classContent("pay")
-                        .classPrice(BigDecimal.valueOf(1000))
-                        .classMaxCap(10)
-                        .classState(ClassState.OPEN)
-                        .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(5))
-                        .user(creator)
-                        .build()
-        );
+        EnrollEntity enrollEntity =
+                enrollRepository.save(
+                        EnrollEntity.builder()
+                                .user(student)
+                                .classEntity(classEntity)
+                                .enrollState(EnrollState.CONFIRMED)
+                                .build()
+                );
 
-        EnrollEntity enrollEntity = enrollRepository.save(
-                EnrollEntity.builder()
-                        .user(student)
-                        .classEntity(classEntity)
-                        .enrollState(EnrollState.CONFIRMED)
-                        .build()
-        );
-
-        enrollEntity.changeUpdateDate(
-                LocalDate.now().minusDays(10)
+        ReflectionTestUtils.setField(
+                enrollEntity,
+                "enrollUpdateDate",
+                LocalDate.now().minusDays(4)
         );
 
         // when
-        RuntimeException exception =
+        BusinessException exception =
                 Assertions.assertThrows(
-                        RuntimeException.class,
+                        BusinessException.class,
                         () -> enrollService.deleteEnroll(
                                 enrollEntity.getEnrollSeq(),
                                 student.getUserId()
@@ -340,69 +230,46 @@ class EnrollServiceTest {
 
         // then
         Assertions.assertEquals(
-                "결제 후 3일 지나 취소 불가",
-                exception.getMessage()
+                ErrorCode.CANCEL_PERIOD_EXPIRED,
+                exception.getErrorCode()
         );
 
         System.out.println("3일 이후 취소 실패");
     }
 
     /*
-     * 재신청 성공 테스트
-     * 예상 결과: CANCELLED -> PENDING 변경
+     * 취소 후 재신청 성공
      */
     @Test
-    void reEnroll_success_test() {
+    void createEnroll_reEnroll_success_test() {
 
         // given
-        UserEntity creator = userRepository.save(
-                UserEntity.builder()
-                        .userId("creator")
-                        .userPw("1234")
-                        .userType(UserType.CREATOR)
-                        .build()
-        );
+        UserEntity creator = createCreator("creator6");
+        UserEntity student = createStudent("student6");
 
-        UserEntity student = userRepository.save(
-                UserEntity.builder()
-                        .userId("student")
-                        .userPw("1234")
-                        .userType(UserType.CLASSMATE)
-                        .build()
-        );
+        ClassEntity classEntity =
+                createClassEntity(creator, 10);
 
-        ClassEntity classEntity = classRepository.save(
-                ClassEntity.builder()
-                        .classTitle("re")
-                        .classContent("re")
-                        .classPrice(BigDecimal.valueOf(1000))
-                        .classMaxCap(10)
-                        .classState(ClassState.OPEN)
-                        .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(5))
-                        .user(creator)
-                        .build()
-        );
-
-        enrollRepository.save(
-                EnrollEntity.builder()
-                        .user(student)
-                        .classEntity(classEntity)
-                        .enrollState(EnrollState.CANCELLED)
-                        .build()
-        );
+        EnrollEntity enrollEntity =
+                enrollRepository.save(
+                        EnrollEntity.builder()
+                                .user(student)
+                                .classEntity(classEntity)
+                                .enrollState(EnrollState.CANCELLED)
+                                .build()
+                );
 
         // when
-        Long enrollSeq =
-                enrollService.createEnroll(
-                        classEntity.getClassSeq(),
-                        student.getUserId()
-                );
+        enrollService.createEnroll(
+                classEntity.getClassSeq(),
+                student.getUserId()
+        );
 
         // then
         EnrollEntity result =
-                enrollRepository.findById(enrollSeq)
-                        .orElseThrow();
+                enrollRepository.findById(
+                        enrollEntity.getEnrollSeq()
+                ).orElseThrow();
 
         Assertions.assertEquals(
                 EnrollState.PENDING,
@@ -410,5 +277,55 @@ class EnrollServiceTest {
         );
 
         System.out.println("재신청 성공");
+    }
+
+    /*
+     * Creator 생성
+     */
+    private UserEntity createCreator(String userId) {
+
+        return userRepository.save(
+                UserEntity.builder()
+                        .userId(userId)
+                        .userPw("1234")
+                        .userType(UserType.CREATOR)
+                        .build()
+        );
+    }
+
+    /*
+     * Student 생성
+     */
+    private UserEntity createStudent(String userId) {
+
+        return userRepository.save(
+                UserEntity.builder()
+                        .userId(userId)
+                        .userPw("1234")
+                        .userType(UserType.CLASSMATE)
+                        .build()
+        );
+    }
+
+    /*
+     * 클래스 생성
+     */
+    private ClassEntity createClassEntity(
+            UserEntity creator,
+            int maxCap
+    ) {
+
+        return classRepository.save(
+                ClassEntity.builder()
+                        .classTitle("test class")
+                        .classContent("content")
+                        .classPrice(BigDecimal.valueOf(1000))
+                        .classMaxCap(maxCap)
+                        .classState(ClassState.OPEN)
+                        .classStartDate(LocalDate.now())
+                        .classEndDate(LocalDate.now().plusDays(10))
+                        .user(creator)
+                        .build()
+        );
     }
 }
