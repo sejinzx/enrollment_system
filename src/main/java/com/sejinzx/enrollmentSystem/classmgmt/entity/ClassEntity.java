@@ -122,4 +122,10 @@ public class ClassEntity {
      */
     public void updateClassState(ClassState classState) { this.classState = classState; }
 
+    /**
+     * 테스트용 메서드
+     */
+    public void changeCurrApps(int currApps) {
+        this.classCurrApps = currApps;
+    }
 }
