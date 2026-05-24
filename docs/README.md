@@ -156,7 +156,7 @@ Controller는 요청/응답 처리만 담당하고, 실제 검증 및 상태 변
 
 ---
 
-### AI 활용 범위
+## AI 활용 범위
 1. 테스트 코드 작성
 2. 예외 처리 공통화
 3. 코드 중복 최소화 및 비즈니스 로직 적용
@@ -164,10 +164,118 @@ Controller는 요청/응답 처리만 담당하고, 실제 검증 및 상태 변
 
 ---
 
-### API 명세
+## API 명세
 [API 명세 문서](./API-DESC.md)
 
 ---
 
-### DB 스키마
+## DB 스키마
 [DB 스키마 문서](./DB-SCHEMA.md)
+
+---
+
+## 테스트 실행 방법
+### UserService test
+```
+./gradlew test --tests UserServiceTest
+```
+<details>
+<summary>메서드 별 태스트</summary>
+
+- 회원가입 성공
+```
+./gradlew test --tests "UserServiceTest.createUser_success_test"
+```
+- 회원가입 실패
+```
+./gradlew test --tests "UserServiceTest.createUser_fail_test"
+```
+- 로그인 성공
+```
+./gradlew test --tests "UserServiceTest.loginUser_success_test"
+```
+- 로그인 실패
+```
+./gradlew test --tests "UserServiceTest.loginUser_fail_test"
+```
+- 강사 권한 확인 실패
+```
+./gradlew test --tests "UserServiceTest.validateCreator_fail_test"
+```
+- 수강생 권한 확인 실패
+```
+./gradlew test --tests "UserServiceTest.validateClassmate_fail_test"
+```
+
+</details>
+
+### ClassService test
+```
+./gradlew test --tests ClassServiceTest
+```
+<details>
+<summary>메서드 별 태스트</summary>
+
+- 강의 등록 성공
+```
+./gradlew test --tests "ClassServiceTest.createClass_success_test"
+```
+- 강의 수정 성공
+```
+./gradlew test --tests "ClassServiceTest.updateClass_success_test"
+```
+- 모집중인 강의 수정 실패
+```
+./gradlew test --tests "ClassServiceTest.updateClass_open_fail_test"
+```
+- 강의 삭제 성공
+```
+./gradlew test --tests "ClassServiceTest.deleteClass_success_test"
+```
+- 강의 상태 변경
+```
+./gradlew test --tests "ClassServiceTest.updateClassState_test"
+```
+
+</details>
+
+
+### EnrollService test
+```
+./gradlew test --tests EnrollServiceTest
+```
+<details>
+<summary>메서드 별 태스트</summary>
+
+- 수강 신청 성공
+```
+./gradlew test --tests "EnrollServiceTest.createEnroll_success_test"
+```
+- 수강 신청 실패: 정원 초과
+```
+./gradlew test --tests "EnrollServiceTest.createEnroll_capacity_fail_test"
+```
+- 수강 신청 실패: 중복 신청
+```
+./gradlew test --tests "EnrollServiceTest.createEnroll_duplicate_fail_test"
+```
+- 수강 취소 성공
+```
+./gradlew test --tests "EnrollServiceTest.deleteEnroll_success_test"
+```
+- 수강 취소 실패 - 결제 후 3일 지남
+```
+./gradlew test --tests "EnrollServiceTest.deleteEnroll_after3days_fail_test"
+```
+- 수강 신청 취소 후 재신청 성공
+```
+./gradlew test --tests "EnrollServiceTest.createEnroll_reEnroll_success_test"
+```
+
+</details>
+
+
+### 결과 확인 페이지
+```
+http://localhost:63342/enrollment/build/reports/tests/test/index.html
+```
