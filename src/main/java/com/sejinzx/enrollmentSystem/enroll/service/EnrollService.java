@@ -7,6 +7,8 @@ import com.sejinzx.enrollmentSystem.enroll.dto.ResponseGetUserEnrollClass;
 import com.sejinzx.enrollmentSystem.enroll.entity.EnrollEntity;
 import com.sejinzx.enrollmentSystem.enroll.entity.EnrollState;
 import com.sejinzx.enrollmentSystem.enroll.repository.EnrollRepository;
+import com.sejinzx.enrollmentSystem.error.BusinessException;
+import com.sejinzx.enrollmentSystem.error.ErrorCode;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.service.UserService;
 import jakarta.transaction.Transactional;
@@ -34,7 +36,7 @@ public class EnrollService {
     public Long createEnroll(Long classSeq, String userId) {
 
         // 1. 유저 조회
-        UserEntity user = userService.getUser(userId);
+        UserEntity user = userService.validateClassmate(userId);
 
         // 2. 강의 조회 및 정원 확인, 증가
         ClassEntity classEntity = classService.getAvailableClassWithLock(classSeq);
@@ -60,7 +62,7 @@ public class EnrollService {
         }
         // 4-3. 신청 이력 있음
         else {
-            throw new RuntimeException("이미 신청한 강의");
+            throw new BusinessException(ErrorCode.DUPLICATE_ENROLL);
         }
 
         return enrollRepository.save(enrollEntity)
@@ -76,15 +78,10 @@ public class EnrollService {
         // 1. 수강 신청 유무 확인
         EnrollEntity enrollEntity = validateMyEnroll(enrollSeq, userId);
 
-        // 2. 본인 확인
-        if (!enrollEntity.getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("본인 수강 신청만 삭제 가능");
-        }
-
-        // 3. 취소 검증
+        // 2. 취소 검증
         validateCancelable(enrollEntity);
 
-        // 4. 취소
+        // 3. 취소
         enrollEntity.deleteEnroll();
 
         return enrollEntity.getEnrollSeq();
@@ -96,7 +93,7 @@ public class EnrollService {
     public EnrollEntity getEnroll(Long enrollSeq) {
 
         return enrollRepository.findById(enrollSeq)
-                .orElseThrow(() -> new RuntimeException("Enroll not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ENROLL_NOT_FOUND));
     }
 
     /**
@@ -105,7 +102,7 @@ public class EnrollService {
     public Page<ResponseGetEnroll> getMyListEnroll(int page, int size, String userId) {
 
         // 1. 유저 조회
-        Long userSeq = userService.getUser(userId).getUserSeq();
+        Long userSeq = userService.validateClassmate(userId).getUserSeq();
 
         // 2. 페이징 조건 설정
         Pageable pageable = PageRequest.of(page, size);
@@ -115,7 +112,9 @@ public class EnrollService {
                 .map(enroll -> ResponseGetEnroll.builder()
                         .enrollSeq(enroll.getEnrollSeq())
                         .enrollState(enroll.getEnrollState())
-                        .classEntity(enroll.getClassEntity())
+                        .classTitle(enroll.getClassEntity().getClassTitle())
+                        .classStartDate(enroll.getClassEntity().getClassStartDate())
+                        .classEndDate(enroll.getClassEntity().getClassEndDate())
                         .build()
                 );
     }
@@ -130,12 +129,7 @@ public class EnrollService {
         // 1. 수강 신청 유무 확인
         EnrollEntity enrollEntity = validateMyEnroll(enrollSeq, userId);
 
-        // 2. 본인인지 확인
-        if (!enrollEntity.getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("본인 수강 신청만 삭제 가능");
-        }
-
-        // 3. enrollState: PENDING -> CONFIRMED 변경
+        // 2. enrollState: PENDING -> CONFIRMED 변경
         enrollEntity.payedEnroll();
 
         return enrollEntity.getEnrollSeq();
@@ -173,7 +167,7 @@ public class EnrollService {
         EnrollEntity enrollEntity = getEnroll(enrollSeq);
 
         if (!enrollEntity.getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("본인 수강 신청만 가능");
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
         return enrollEntity;
@@ -189,13 +183,11 @@ public class EnrollService {
             return;
         }
 
-        // 결제 후 3일 이내 취소 가능
-        if (enrollEntity.getEnrollState() == EnrollState.CONFIRMED &&
-                enrollEntity.getEnrollUpdateDate().plusDays(3).isBefore(LocalDate.now())) {
-            return;
+        // 결제 후 3일 지났을 시 취소 불가
+        if(enrollEntity.getEnrollState() == EnrollState.CONFIRMED &&
+                LocalDate.now().isAfter(enrollEntity.getEnrollUpdateDate().plusDays(3))) {
+            throw new BusinessException(ErrorCode.CANCEL_PERIOD_EXPIRED);
         }
-
-        throw new RuntimeException("결제 후 3일 지나 취소 불가");
     }
 
 

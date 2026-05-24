@@ -1,13 +1,14 @@
 package com.sejinzx.enrollmentSystem.user.service;
 
 import com.sejinzx.enrollmentSystem.config.JwtTokenProvider;
+import com.sejinzx.enrollmentSystem.error.BusinessException;
+import com.sejinzx.enrollmentSystem.error.ErrorCode;
 import com.sejinzx.enrollmentSystem.user.dto.RequestAddUser;
 import com.sejinzx.enrollmentSystem.user.dto.RequestLogin;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -25,10 +26,7 @@ public class UserService {
     public void createUser(RequestAddUser requestAddUser) {
 
         // 1. 아이디 중복 확인
-        if (userRepository.findByUserIdAndUserDeletedFalse(
-                requestAddUser.getUserId()).isPresent()) {
-            throw new RuntimeException("ID exists");
-        }
+        validateDuplicateUser(requestAddUser.getUserId());
 
         // 2. 비밀번호 암호화
         String encodedPw = pwEncoder.encode(requestAddUser.getUserPw());
@@ -41,17 +39,17 @@ public class UserService {
                 .build();
 
         // 4. 저장
-        UserEntity saved = userRepository.save(userEntity);
-
+        userRepository.save(userEntity);
     }
 
     /**
      * 아이디 중복 확인
      */
-    public boolean existsById(String id) {
-        return userRepository
-                .findByUserIdAndUserDeletedFalse(id)
-                .isPresent();
+    public void validateDuplicateUser(String userId) {
+
+        if (userRepository.existsByUserIdAndUserDeletedFalse(userId)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_USER_ID);
+        }
     }
 
     /**
@@ -60,13 +58,11 @@ public class UserService {
     public String loginUser(RequestLogin requestLogin) {
 
         // 1. 유저 조회
-        UserEntity user = getUser(requestLogin.getUserId());
+        UserEntity user = findActiveUser(requestLogin.getUserId());
 
         // 2. 비밀번호 확인
-        if (!pwEncoder.matches(
-                requestLogin.getUserPw(),
-                user.getUserPw())) {
-            throw new RuntimeException("Password mismatch");
+        if (!pwEncoder.matches(requestLogin.getUserPw(), user.getUserPw())) {
+            throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
 
         // 3. JWT 생성
@@ -75,31 +71,46 @@ public class UserService {
                 "ROLE_" + user.getUserType().name(),
                 3600000L
         );
-
     }
 
     /**
      * userId로 user 정보 조회
      */
-    public UserEntity getUser(String userId) {
+    public UserEntity findActiveUser(String userId) {
+
         return userRepository.findByUserIdAndUserDeletedFalse(userId)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     /**
-     * User Type 확인
+     * Creator 확인
      */
     public UserEntity validateCreator(String userId) {
 
         // 1. 사용자 유무 확인
-        UserEntity user = getUser(userId);
+        UserEntity user = findActiveUser(userId);
 
         // 2. 사용자 Type 확인
         if (user.getUserType() != UserType.CREATOR) {
-            throw new RuntimeException("권한 없음");
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
         return user;
     }
 
+    /**
+     * Classmate 확인
+     */
+    public UserEntity validateClassmate(String userId) {
+
+        // 1. 사용자 유무 확인
+        UserEntity user = findActiveUser(userId);
+
+        // 2. 사용자 Type 확인
+        if (user.getUserType() != UserType.CLASSMATE) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        return user;
+    }
 }

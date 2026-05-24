@@ -3,9 +3,9 @@ package com.sejinzx.enrollmentSystem.user.controller;
 import com.sejinzx.enrollmentSystem.user.dto.RequestAddUser;
 import com.sejinzx.enrollmentSystem.user.dto.RequestLogin;
 import com.sejinzx.enrollmentSystem.user.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jdk.jfr.Description;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/user")
+@RequestMapping("/api/users")
 @RequiredArgsConstructor
 @SecurityRequirements
 public class UserController {
@@ -32,10 +32,13 @@ public class UserController {
     }
 
     @Tag(name = "User ID 중복 확인")
-    @Description("userId 존재 -> true, userId 존재 X -> false")
-    @GetMapping("/existsById")
+    @Operation(description = "userId 존재 -> true, userId 존재 X -> false")
+    @GetMapping("/exists")
     public ResponseEntity<?> existsById(@RequestParam String id) {
-        return ResponseEntity.ok(userService.existsById(id));
+
+        userService.validateDuplicateUser(id);
+
+        return ResponseEntity.ok(Map.of("message: ", "available ID"));
     }
 
     @Tag(name = "User 로그인")

@@ -14,14 +14,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/class")
+@RequestMapping("/api/classes")
 @RequiredArgsConstructor
 public class ClassController {
 
     private final ClassService classService;
 
     @Tag(name = "Class 등록")
-    @PostMapping("/reg")
+    @PostMapping
     public ResponseEntity<?> createClass(@RequestBody RequestAddClass requestAddClass,
                                          Authentication auth) {
 
@@ -32,11 +32,10 @@ public class ClassController {
                         Map.of("classSeq", classService.createClass(requestAddClass, userId),
                         "message", "강의 등록 완료" )
                 );
-
     }
 
     @Tag(name = "Class 수정")
-    @PutMapping("/update/{classSeq}")
+    @PutMapping("/{classSeq}")
     public ResponseEntity<?> updateClass(@PathVariable Long classSeq,
                                          @RequestBody RequestUpdateClass requestUpdateClass,
                                          Authentication auth) {
@@ -47,11 +46,10 @@ public class ClassController {
                 Map.of("classSeq", classService.updateClass(classSeq, requestUpdateClass, userId),
                         "message", "강의 수정 완료" )
         );
-
     }
 
     @Tag(name = "Class 목록 조회")
-    @GetMapping("/list")
+    @GetMapping
     public ResponseEntity<?> getListClass(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -60,21 +58,19 @@ public class ClassController {
         return ResponseEntity.ok(
                 classService.getListClass(page, size, state)
         );
-
     }
 
     @Tag(name = "Class 상세 조회")
-    @GetMapping("/detail/{classSeq}")
+    @GetMapping("/{classSeq}")
     public ResponseEntity<?> getDetailClass(@PathVariable Long classSeq) {
 
         return ResponseEntity.ok(
                 classService.getDetailClass(classSeq)
         );
-
     }
 
     @Tag(name = "Class 삭제")
-    @PutMapping("/delete/{classSeq}")
+    @DeleteMapping("/{classSeq}")
     public ResponseEntity<?> deleteClass(@PathVariable Long classSeq,
                                          Authentication auth) {
 
@@ -84,7 +80,5 @@ public class ClassController {
                 Map.of("classSeq", classService.deleteClass(classSeq, userId),
                         "message", "강의 삭제 완료" )
         );
-
     }
-
 }

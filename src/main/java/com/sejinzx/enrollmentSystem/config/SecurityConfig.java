@@ -21,6 +21,7 @@ import java.util.Collections;
 public class SecurityConfig {
 
     private final AuthenticationConfiguration authenticationConfiguration;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtTokenProvider jwtTokenProvider;
 
     /*
@@ -37,12 +38,13 @@ public class SecurityConfig {
                 // 엔드포인트별 접근 권한 설정
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/user/**",
+                                "/api/users/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
                         // .requestMatchers("/admin").hasAuthority("ADMIN") // /admin 경로는 ADMIN 권한이 필요
-                        .requestMatchers("/api/class/**").authenticated()
+                        .requestMatchers("/api/classes/**").authenticated()
+                        .requestMatchers("/api/enrollments/**").authenticated()
                         .anyRequest().authenticated())
 
                 // jwt 필터 추가
@@ -52,8 +54,11 @@ public class SecurityConfig {
                 .addFilterAfter(new LoginFilter(authenticationManager(), jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
 
                 // 세션 비활성화 (jwt 사용)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+        );
         return http.build();
     }
 
