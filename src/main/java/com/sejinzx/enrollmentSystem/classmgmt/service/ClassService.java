@@ -62,7 +62,7 @@ public class ClassService {
         // 2. 본인 강의 확인
         ClassEntity classEntity = getValidateMyClass(classSeq, userSeq);
 
-        // 3. 모집 상태에 따른 수정 여부 확인
+        // 3. 모집 상태에 따른 수정 가능 여부 확인
         if(classEntity.getClassState() == ClassState.OPEN ||
                 classEntity.getClassState() == ClassState.CLOSED) {
             throw new BusinessException(ErrorCode.CLASS_MODIFICATION_NOT_ALLOWED);
@@ -120,7 +120,13 @@ public class ClassService {
         // 2. 본인 강의 확인
         ClassEntity classEntity = getValidateMyClass(classSeq, userSeq);
 
-        // 3. classDeleted: false -> true 변경
+        // 3. 모집 상태에 따른 삭제 가능 여부 확인
+        if(classEntity.getClassState() == ClassState.OPEN ||
+                classEntity.getClassState() == ClassState.CLOSED) {
+            throw new BusinessException(ErrorCode.CLASS_DELETE_NOT_ALLOWED);
+        }
+
+        // 4. classDeleted: false -> true 변경
         classEntity.deleteClass();
 
         return classEntity.getClassSeq();
