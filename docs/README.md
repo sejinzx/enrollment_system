@@ -1,281 +1,67 @@
-## 프로젝트 개요
-수강 신청 시스템은 강사(CREATOR)가 강의를 개설하고, 수강생(CLASSMATE)이 강의를 신청 및 취소할 수 있는 Spring Boot 기반 백엔드 프로젝트입니다.
-JWT 인증 기반으로 사용자 권한을 분리하고, 강의 상태 및 수강 신청 상태를 관리하는 비즈니스 로직을 구현했습니다.
+# 🎓 수강신청 시스템 (Enrollment System)
 
-1. 강의 상태 전이 관리 (DRAFT → OPEN → CLOSED)
-2. 동시성 문제를 고려한 정원 관리 로직 구현
-3. 수강 신청 및 결제 상태 관리
-4. 취소 가능 기간 검증
-5. 예외 코드 기반 API 응답 구조 설계
-6. JWT 기반 인증 및 권한 처리
+## 📌 프로젝트 개요
 
-또한 JPA와 Spring Security를 활용해 REST API를 설계하고, 비즈니스 규칙 중심의 서비스 계층 구조와 예외 처리 구조를 적용하여 유지보수성과 확장성을 고려했습니다.
+이 프로젝트는 단순 기능 구현이 아니라, 수강신청 과정에서 동시에 여러 요청이 들어올 때 발생할 수 있는 문제를 어떻게 처리할지에 초점을 맞춰 설계했다.
+
+여러 사용자가 동시에 같은 강의를 신청하는 상황을 가정하고, 정원이 초과되거나 데이터가 꼬이지 않도록 처리 구조를 고민했다.
 
 ---
 
-## 기술 스택
+## 🎯 문제 정의
+
+수강신청 시스템에서는 동시에 다수의 사용자가 특정 강의에 접근할 경우 다음과 같은 문제가 발생할 수 있다.
+
+- 강의 정원 초과 신청 발생
+- 동시에 동일 좌석(정원)에 대한 중복 신청
+- 데이터 정합성 깨짐 (Race Condition)
+- 동시 요청 처리 시 충돌 발생
+
+---
+
+## 🧠 해결 방법
+
+위 문제를 해결하기 위해 다음과 같은 방식을 적용하였다.
+
+- **트랜잭션 기반 처리**를 통해 데이터 정합성 보장
+- 동시성 문제를 고려한 **잠금(Lock) 전략 적용**
+- 강의 정원 초과 방지를 위한 **서버단 검증 로직 추가**
+- 요청 처리 흐름에서 **원자성 보장 구조 설계**
+
+---
+
+## 🏗️ 시스템 설계
+
+- Spring Boot 기반 REST API 설계
+- MySQL을 활용한 데이터 저장 및 관리
+- 서비스 레이어 중심 비즈니스 로직 구성
+- 트랜잭션 기반 신청 처리 구조
+
+---
+
+## ⚙️ 주요 기능
+
+- 회원 강의 목록 조회
+- 수강 신청 기능
+- 수강 신청 취소 기능
+- 강의 정원 관리
+- 신청 가능 여부 검증
+
+---
+
+## 🛠️ 기술 스택
+
+- Java
 - Spring Boot
-- JPA
+- Spring Data JPA
 - MySQL
-- Spring Security
-- JWT
+- Gradle
 
 ---
 
-## 실행 방법
-1. 환경 변수 설정(.env)
-```
-.env.example 파일을 참고하여 .env 파일 작성
-```
+## 📄 문서 구조
 
-2. 실행
-```
-./gradlew build
-java -jar build/libs/enrollment-0.0.1-SNAPSHOT.jar
-```
+프로젝트 상세 설계 문서는 아래와 같다.
 
-3. Swagger 접속
-```
-http://localhost:8080/swagger-ui/index.html
-```
-
----
-
-## 요구사항 해석 및 가정
-### 사용자
-- JWT 인증 기반 로그인 방식 사용
-- CLASSMATE는 수강 신청만 가능하고, CREATOR는 강의 관리만 가능하다고 가정
-
-### 강의
-- 강의 생성 및 수정/삭제는 CREATOR 권한만 가능하다고 가정
-- 모집 상태는 DRAFT → OPEN → CLOSED 순으로 변경
-- OPEN 상태 강의만 수강 신청 가능하다고 판단
-- OPEN, CLOSED 상태의 강의는 수정/삭제 불가능
-
-### 수강 신청
-- 하나의 사용자는 동일 강의에 중복 신청할 수 없다고 가정
-- 취소 상태(CANCELLED)인 경우 재신청 가능하도록 처리
-- 결제 완료(CONFIRMED) 상태는 결제 후 3일 이내까지만 취소 가능하다고 가정
-
-### 기타
-- 삭제는 실제 DB 삭제 대신 soft delete 방식 사용
-- 동시성 문제를 고려하여 수강 신청 시 비관적 락 적용
-- API 응답은 JSON 형식으로 반환
-
----
-
-## 설계 결정과 이유
-
-### 1. Soft Delete 적용
-데이터 복구 가능성과 이력 보존을 위해 Hard Delete 대신 Soft Delete 방식 사용
-
-- `classDeleted`
-- `userDeleted`
-- `EnrollState(CANCELLED)`
-
-를 통해 삭제 여부를 관리
-
-
-### 2. Service 계층에 비즈니스 로직 집중
-Controller는 요청/응답 처리만 담당하고, 실제 검증 및 상태 변경은 Service 계층에서 처리
-
-- 유지보수성 향상
-- 테스트 코드 작성 용이
-
-
-### 3. 사용자 권한 분리
-
-- `CREATOR`
-  - 강의 등록
-  - 강의 수정
-  - 강의 삭제
-
-- `CLASSMATE`
-  - 수강 신청
-  - 수강 취소
-
-권한별 기능을 분리하여 접근 제어를 명확하게 설계
-
-
-### 4. 동시성 처리
-수강 신청 시 정원 초과 문제 방지를 위해 비관적 락(Pessimistic Lock) 적용
-
-- 동시에 여러 요청이 들어와도 정원 초과 신청이 발생하지 않도록 설계
-- DB 레벨 Lock을 통해 데이터 정합성을 보장
-
-비관적 락 선택 이유:
-- 낙관적 락은 충돌 시 재시도 처리가 필요하고 제어 흐름이 복잡하다고 판단
-- 네임드 락은 직접 Lock 관리가 필요해 구현 복잡도가 높다고 판단
-
-
-### 5. 예외 처리 공통화
-`BusinessException`, `ErrorCode`를 사용해 예외 응답 형식을 통일
-
-- 일관된 API 응답 구조 유지
-- 유지보수성과 확장성을 고려
-
----
-## 미구현 / 제약사항
-### 미구현
-- 대기열 기능
-
-### 제약사항
-#### 1. 사용자 유형 기반 기능 제한
-- `CREATOR`만 강의 등록/수정/삭제 가능
-- `CLASSMATE`만 수강 신청 가능
-
-
-#### 2. 강의 상태 기반 제한
-- `OPEN` 상태의 강의만 수강 신청 가능
-- `DRAFT`, `CLOSED` 상태에서는 신청 불가
-- 모집이 시작되거나 종료된 강의는 수정 불가
-
-
-#### 3. 수강 신청 제한
-- 동일 사용자는 동일 강의를 중복 신청할 수 없음
-- 취소(`CANCELLED`) 상태인 경우에만 재신청 가능
-
-
-#### 4. 수강 취소 제한
-- `PENDING` 상태는 언제든 취소 가능
-- `CONFIRMED` 상태는 결제 후 3일 이내만 취소 가능
-
-
-#### 5. 정원 제한
-- 강의 최대 정원(`classMaxCap`) 초과 시 신청 불가
-
-
-#### 6. 삭제 정책
-- 실제 DB 삭제 대신 Soft Delete 방식 사용
-- 삭제된 사용자 및 강의는 조회 대상에서 제외
-
-
-#### 7. 인증 제한
-- JWT 인증 사용자만 API 접근 가능
-- 인증되지 않은 사용자는 접근 불가
-
----
-
-## AI 활용 범위
-1. 테스트 코드 작성
-2. 예외 처리 공통화
-3. 코드 중복 최소화 및 비즈니스 로직 적용
-4. 에러 검색
-
----
-
-## API 명세
-[API 명세 문서](./API-DESC.md)
-
----
-
-## DB 스키마
-[DB 스키마 문서](./DB-SCHEMA.md)
-
----
-
-## 테스트 실행 방법
-### UserService test
-```
-./gradlew test --tests UserServiceTest
-```
-<details>
-<summary>메서드 별 태스트</summary>
-
-- 회원가입 성공
-```
-./gradlew test --tests "UserServiceTest.createUser_success_test"
-```
-- 회원가입 실패
-```
-./gradlew test --tests "UserServiceTest.createUser_fail_test"
-```
-- 로그인 성공
-```
-./gradlew test --tests "UserServiceTest.loginUser_success_test"
-```
-- 로그인 실패
-```
-./gradlew test --tests "UserServiceTest.loginUser_fail_test"
-```
-- 강사 권한 확인 실패
-```
-./gradlew test --tests "UserServiceTest.validateCreator_fail_test"
-```
-- 수강생 권한 확인 실패
-```
-./gradlew test --tests "UserServiceTest.validateClassmate_fail_test"
-```
-
-</details>
-
-### ClassService test
-```
-./gradlew test --tests ClassServiceTest
-```
-<details>
-<summary>메서드 별 태스트</summary>
-
-- 강의 등록 성공
-```
-./gradlew test --tests "ClassServiceTest.createClass_success_test"
-```
-- 강의 수정 성공
-```
-./gradlew test --tests "ClassServiceTest.updateClass_success_test"
-```
-- 모집중인 강의 수정 실패
-```
-./gradlew test --tests "ClassServiceTest.updateClass_open_fail_test"
-```
-- 강의 삭제 성공
-```
-./gradlew test --tests "ClassServiceTest.deleteClass_success_test"
-```
-- 강의 상태 변경
-```
-./gradlew test --tests "ClassServiceTest.updateClassState_test"
-```
-
-</details>
-
-
-### EnrollService test
-```
-./gradlew test --tests EnrollServiceTest
-```
-<details>
-<summary>메서드 별 태스트</summary>
-
-- 수강 신청 성공
-```
-./gradlew test --tests "EnrollServiceTest.createEnroll_success_test"
-```
-- 수강 신청 실패: 정원 초과
-```
-./gradlew test --tests "EnrollServiceTest.createEnroll_capacity_fail_test"
-```
-- 수강 신청 실패: 중복 신청
-```
-./gradlew test --tests "EnrollServiceTest.createEnroll_duplicate_fail_test"
-```
-- 수강 취소 성공
-```
-./gradlew test --tests "EnrollServiceTest.deleteEnroll_success_test"
-```
-- 수강 취소 실패 - 결제 후 3일 지남
-```
-./gradlew test --tests "EnrollServiceTest.deleteEnroll_after3days_fail_test"
-```
-- 수강 신청 취소 후 재신청 성공
-```
-./gradlew test --tests "EnrollServiceTest.createEnroll_reEnroll_success_test"
-```
-
-</details>
-
-
-### 결과 확인 페이지
-```
-http://localhost:63342/enrollment/build/reports/tests/test/index.html
-```
+- 📌 API 명세서: [API-DESC.md](./docs/API-DESC.md)
+- 📌 DB 설계: [DB-SCHEMA.md](./docs/DB-SCHEMA.md)
