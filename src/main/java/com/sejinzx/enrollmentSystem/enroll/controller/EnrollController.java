@@ -25,10 +25,17 @@ public class EnrollController {
 
         String userId = auth.getName();
 
-        return ResponseEntity.status(HttpStatus.CREATED)
+        enrollService.requestEnroll(
+                classSeq,
+                userId
+        );
+
+        return ResponseEntity.accepted()
                 .body(
-                        Map.of("enrollSeq", enrollService.createEnroll(classSeq, userId),
-                                "message", "success registration")
+                        Map.of(
+                                "classSeq", classSeq,
+                                "message", "enrollment request accepted"
+                        )
                 );
     }
 

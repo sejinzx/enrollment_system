@@ -142,7 +142,7 @@ public class ClassService {
     }
 
     /**
-     * 신청 가능 강의 조회
+     * 신청 가능 강의 조회 (비관적 락)
      */
     @Transactional
     public ClassEntity getAvailableClassWithLock(Long classSeq) {
@@ -173,6 +173,19 @@ public class ClassService {
                 >= classEntity.getClassMaxCap()) {
             throw new BusinessException(ErrorCode.CLASS_CAPACITY_FULL);
         }
+    }
+
+    @Transactional
+    public void increaseCurrApps(Long classSeq) {
+
+        ClassEntity classEntity =
+                classRepository.findById(classSeq)
+                        .orElseThrow(() ->
+                                new BusinessException(ErrorCode.CLASS_NOT_FOUND));
+
+        validateEnrollAvailable(classEntity);
+
+        classEntity.increaseCurrApps();
     }
 
     /**
