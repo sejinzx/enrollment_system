@@ -54,7 +54,7 @@ class EnrollServiceTest {
 
         // when
         Long enrollSeq =
-                enrollService.createEnroll(
+                enrollService.processEnroll(
                         classEntity.getClassSeq(),
                         student.getUserId()
                 );
@@ -93,7 +93,7 @@ class EnrollServiceTest {
         BusinessException exception =
                 Assertions.assertThrows(
                         BusinessException.class,
-                        () -> enrollService.createEnroll(
+                        () -> enrollService.processEnroll(
                                 classEntity.getClassSeq(),
                                 student.getUserId()
                         )
@@ -133,7 +133,7 @@ class EnrollServiceTest {
         BusinessException exception =
                 Assertions.assertThrows(
                         BusinessException.class,
-                        () -> enrollService.createEnroll(
+                        () -> enrollService.processEnroll(
                                 classEntity.getClassSeq(),
                                 student.getUserId()
                         )
@@ -260,7 +260,7 @@ class EnrollServiceTest {
                 );
 
         // when
-        enrollService.createEnroll(
+        enrollService.processEnroll(
                 classEntity.getClassSeq(),
                 student.getUserId()
         );

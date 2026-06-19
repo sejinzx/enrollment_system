@@ -2,10 +2,12 @@ package com.sejinzx.enrollmentSystem.enroll.service;
 
 import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassEntity;
 import com.sejinzx.enrollmentSystem.classmgmt.service.ClassService;
+import com.sejinzx.enrollmentSystem.enroll.dto.EnrollmentRequestedEvent;
 import com.sejinzx.enrollmentSystem.enroll.dto.ResponseGetEnroll;
 import com.sejinzx.enrollmentSystem.enroll.dto.ResponseGetUserEnrollClass;
 import com.sejinzx.enrollmentSystem.enroll.entity.EnrollEntity;
 import com.sejinzx.enrollmentSystem.enroll.entity.EnrollState;
+import com.sejinzx.enrollmentSystem.enroll.kafka.EnrollmentProducer;
 import com.sejinzx.enrollmentSystem.enroll.repository.EnrollRepository;
 import com.sejinzx.enrollmentSystem.error.BusinessException;
 import com.sejinzx.enrollmentSystem.error.ErrorCode;
@@ -13,6 +15,7 @@ import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -23,23 +26,35 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EnrollService {
 
     private final EnrollRepository enrollRepository;
     private final ClassService classService;
     private final UserService userService;
+    private final EnrollmentProducer enrollmentProducer;
+
+    /**
+     * Kafka 요청 발행
+     */
+    public void requestEnroll(Long classSeq, String userId) {
+
+        enrollmentProducer.sendRequest(new EnrollmentRequestedEvent(userId, classSeq));
+    }
 
     /**
      * 수강 신청
      */
     @Transactional
-    public Long createEnroll(Long classSeq, String userId) {
+    public Long processEnroll(Long classSeq, String userId) {
+
+        log.info("🔥 PROCESS ENROLL START");
 
         // 1. 유저 조회
         UserEntity user = userService.validateClassmate(userId);
 
         // 2. 강의 조회 및 정원 확인, 증가
-        ClassEntity classEntity = classService.getAvailableClassWithLock(classSeq);
+        ClassEntity classEntity = classService.getClass(classSeq);
 
         // 3. 수강 신청 여부 확인
         Optional<EnrollEntity> opt =
