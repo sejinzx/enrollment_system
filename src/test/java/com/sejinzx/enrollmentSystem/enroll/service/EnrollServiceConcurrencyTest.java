@@ -72,7 +72,7 @@ class EnrollServiceConcurrencyTest {
                         try {
                             startLatch.await();
 
-                            enrollService.createEnroll(
+                            enrollService.processEnroll(
                                     classEntity.getClassSeq(),
                                     student.getUserId()
                             );
