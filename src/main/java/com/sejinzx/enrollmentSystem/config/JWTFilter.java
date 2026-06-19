@@ -25,7 +25,8 @@ public class JWTFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
 
     private boolean isWhiteList(String path) {
-        return path.startsWith("/api/users")
+        return path.startsWith("/api/users/login")
+                || path.startsWith("/api/users/signup")
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/v3/api-docs");
     }
@@ -45,7 +46,8 @@ public class JWTFilter extends OncePerRequestFilter {
         String authorizationHeader = request.getHeader("Authorization");
 
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            throw new JwtAuthenticationException("JWT 토큰이 없습니다");
+            filterChain.doFilter(request, response);
+            return;
         }
 
         // Bearer 이후의 토큰 값만 추출
