@@ -34,7 +34,7 @@ public class EnrollController {
                 .body(
                         Map.of(
                                 "classSeq", classSeq,
-                                "message", "enrollment request accepted"
+                                "message", "수강 신청 요청 접수"
                         )
                 );
     }
