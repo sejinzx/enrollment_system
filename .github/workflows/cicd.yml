@@ -35,7 +35,7 @@ jobs:
 
       - name: Build Image
         run: |
-          docker build -t sejin22/enrollment-app:latest .
+          docker build -t sejin22/enrollment-app:${{ github.run_number }} .
 
       - name: Push Image
         run: |
