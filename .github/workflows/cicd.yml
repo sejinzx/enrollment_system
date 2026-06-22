@@ -39,4 +39,4 @@ jobs:
 
       - name: Push Image
         run: |
-          docker push sejin22/enrollment-app:latest
+          docker push sejin22/enrollment-app:${{ github.run_number }} .
