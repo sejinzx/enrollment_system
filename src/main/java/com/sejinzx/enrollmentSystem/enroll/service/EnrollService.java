@@ -39,7 +39,9 @@ public class EnrollService {
      */
     public void requestEnroll(Long classSeq, String userId) {
 
-        enrollmentProducer.sendRequest(new EnrollmentRequestedEvent(userId, classSeq));
+        enrollmentProducer.sendRequest(
+                new EnrollmentRequestedEvent(userId, classSeq, System.currentTimeMillis())
+        );
     }
 
     /**
@@ -48,40 +50,45 @@ public class EnrollService {
     @Transactional
     public Long processEnroll(Long classSeq, String userId) {
 
-        log.info("🔥 PROCESS ENROLL START");
-
         // 1. 유저 조회
         UserEntity user = userService.validateClassmate(userId);
 
-        // 2. 강의 조회 및 정원 확인, 증가
-        ClassEntity classEntity = classService.getClass(classSeq);
-
-        // 3. 수강 신청 여부 확인
+        // 2. 수강 신청 여부 확인
         Optional<EnrollEntity> opt =
                 enrollRepository.findByUser_UserSeqAndClassEntity_ClassSeq(user.getUserSeq(), classSeq);
 
+        // 3-1. 수강신청 중복
+        if (opt.isPresent() && opt.get().getEnrollState() != EnrollState.CANCELLED) {
+            throw new BusinessException(ErrorCode.DUPLICATE_ENROLL);
+        }
+
+        ClassEntity classEntity = classService.getClass(classSeq);
+
+        // 3-2. 수강 인원 초과
+        if (classEntity.getClassCurrApps() >= classEntity.getClassMaxCap()) {
+            throw new BusinessException(ErrorCode.CLASS_CAPACITY_FULL);
+        }
+
+        // 4. 수강 인원 증가
+        classService.increaseCurrApps(classSeq);
+
         EnrollEntity enrollEntity;
 
-        // 4-1. 신규 신청
-        if (opt.isEmpty()) {
+        // 4-1. 재신청
+        if (opt.isPresent()) {
+            enrollEntity = opt.get();
+            enrollEntity.reEnroll();
+        }
+        // 4-2. 새 신청
+        else {
             enrollEntity = EnrollEntity.builder()
                     .user(user)
                     .classEntity(classEntity)
                     .enrollState(EnrollState.PENDING)
                     .build();
         }
-        // 4-2. 취소 후 재신청
-        else if (opt.get().getEnrollState() == EnrollState.CANCELLED) {
-            enrollEntity = opt.get();
-            enrollEntity.reEnroll();
-        }
-        // 4-3. 신청 이력 있음
-        else {
-            throw new BusinessException(ErrorCode.DUPLICATE_ENROLL);
-        }
 
-        return enrollRepository.save(enrollEntity)
-                .getEnrollSeq();
+        return enrollRepository.save(enrollEntity).getEnrollSeq();
     }
 
     /**
