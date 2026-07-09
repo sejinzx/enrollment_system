@@ -13,6 +13,8 @@ public class EnrollmentProducer {
 
     public void sendRequest(EnrollmentRequestedEvent event) {
 
+        event.setRequestTime(System.currentTimeMillis());
+
         kafkaTemplate.send(
                 "enrollment-request",
                 event.getClassSeq().toString(),

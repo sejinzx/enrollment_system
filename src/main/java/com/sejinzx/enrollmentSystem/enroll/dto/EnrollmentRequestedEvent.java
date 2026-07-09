@@ -11,4 +11,9 @@ public class EnrollmentRequestedEvent {
 
     private String userId;
     private Long classSeq;
+    private Long requestTime;
+
+    public void setRequestTime(Long requestTime) {
+        this.requestTime = requestTime;
+    }
 }

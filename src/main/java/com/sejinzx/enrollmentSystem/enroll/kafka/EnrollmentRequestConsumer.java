@@ -3,6 +3,7 @@ package com.sejinzx.enrollmentSystem.enroll.kafka;
 import com.sejinzx.enrollmentSystem.classmgmt.service.ClassService;
 import com.sejinzx.enrollmentSystem.enroll.dto.EnrollmentRequestedEvent;
 import com.sejinzx.enrollmentSystem.enroll.service.EnrollService;
+import com.sejinzx.enrollmentSystem.error.BusinessException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,12 +16,29 @@ import org.springframework.stereotype.Component;
 public class EnrollmentRequestConsumer {
 
     private final EnrollService enrollService;
-    private final ClassService classService;
 
-    @KafkaListener(topics = "enrollment-request", groupId = "enrollment-group")
+    @KafkaListener(
+            topics = "enrollment-request",
+            groupId = "enrollment-group",
+            concurrency = "3"
+    )
     public void consume(EnrollmentRequestedEvent req) {
 
-        classService.increaseCurrApps(req.getClassSeq());
-        enrollService.processEnroll(req.getClassSeq(), req.getUserId());
+        long elapsed;
+
+        try {
+            enrollService.processEnroll(req.getClassSeq(), req.getUserId());
+
+            elapsed = System.currentTimeMillis() - req.getRequestTime();
+
+            log.info("ENROLL_SUCCESS EndToEnd={}ms, classSeq={}, userId={}",
+                    elapsed, req.getClassSeq(), req.getUserId());
+
+        } catch (BusinessException e) {
+            elapsed = System.currentTimeMillis() - req.getRequestTime();
+
+            log.info("ENROLL_FAIL reason={}, EndToEnd={}ms, classSeq={}, userId={}",
+                    e.getMessage(), elapsed, req.getClassSeq(), req.getUserId());
+        }
     }
 }
