@@ -46,7 +46,7 @@ Kafka Producer가 수강 신청 요청을 Topic에 발행하고, Consumer Group�
 
 ## 🗄️ 데이터베이스 설계
 
-![수강 신청 시스템 ERD](./docs/erd.png)
+![수강 신청 시스템 ERD](./images/erd.png)
 
 ### 테이블 구성
 
