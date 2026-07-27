@@ -9,7 +9,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Entity
@@ -23,13 +23,13 @@ public class ClassEntity {
     @Column(name = "class_seq", nullable = false)
     private Long classSeq;
 
-    @Column(name = "class_title", nullable = false)
+    @Column(name = "class_title", nullable = false, length = 255)
     private String classTitle;
 
     @Column(name = "class_content", nullable = false, columnDefinition = "TEXT")
     private String classContent;
 
-    @Column(name = "class_price", nullable = false)
+    @Column(name = "class_price", nullable = false, precision = 10, scale = 0)
     private BigDecimal classPrice;
 
     @Column(name = "class_max_cap", nullable = false)
@@ -39,32 +39,33 @@ public class ClassEntity {
     private int classCurrApps = 0;
 
     @Column(name = "class_start_date", nullable = false)
-    private LocalDate classStartDate;
+    private LocalDateTime classStartDate;
 
     @Column(name = "class_end_date", nullable = false)
-    private LocalDate classEndDate;
+    private LocalDateTime classEndDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "class_state", nullable = false, length = 20)
     private ClassState classState;
 
     @Column(name = "class_create_date", nullable = false)
     @CreatedDate
-    private LocalDate classCreateDate;
+    private LocalDateTime classCreateDate;
 
     @Column(name = "class_update_date", nullable = false)
     @LastModifiedDate
-    private LocalDate classUpdateDate;
+    private LocalDateTime classUpdateDate;
 
     @Column(name = "class_deleted", nullable = false)
     private boolean classDeleted = false;
 
-    @ManyToOne
-    @JoinColumn(name = "user_seq")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_seq", nullable = false)
     private UserEntity user;
 
     @Builder
     public ClassEntity(String classTitle, String classContent, BigDecimal classPrice,
-                       int classMaxCap, LocalDate classStartDate, LocalDate classEndDate,
+                       int classMaxCap, LocalDateTime classStartDate, LocalDateTime classEndDate,
                        ClassState classState, UserEntity user) {
         this.classTitle = classTitle;
         this.classContent = classContent;
@@ -80,7 +81,7 @@ public class ClassEntity {
      * 강의 수정 메서드
      */
     public void updateClass(String classTitle, String classContent, BigDecimal classPrice,
-                            int classMaxCap, LocalDate classStartDate, LocalDate classEndDate) {
+                            int classMaxCap, LocalDateTime classStartDate, LocalDateTime classEndDate) {
         this.classTitle = classTitle;
         this.classContent = classContent;
         this.classPrice = classPrice;
