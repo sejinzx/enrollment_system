@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Entity
@@ -21,22 +21,23 @@ public class UserEntity {
     @Column(name = "user_seq", nullable = false)
     private Long userSeq;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id", nullable = false, length = 30, unique = true)
     private String userId;
 
     @Column(name = "user_pw", nullable = false)
     private String userPw;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "user_type", nullable = false, length = 20)
     private UserType userType;
 
     @Column(name = "user_create_date", nullable = false)
     @CreatedDate
-    private LocalDate userCreateDate;
+    private LocalDateTime userCreateDate;
 
     @Column(name = "user_update_date", nullable = false)
     @LastModifiedDate
-    private LocalDate userUpdateDate;
+    private LocalDateTime userUpdateDate;
 
     @Column(name = "user_deleted", nullable = false)
     private boolean userDeleted = false;
