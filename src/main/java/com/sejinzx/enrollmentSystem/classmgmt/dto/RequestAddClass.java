@@ -3,7 +3,7 @@ package com.sejinzx.enrollmentSystem.classmgmt.dto;
 import lombok.Builder;
 import lombok.Getter;
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 public class RequestAddClass {
@@ -12,13 +12,13 @@ public class RequestAddClass {
     private String classContent;
     private BigDecimal classPrice;
     private int classMaxCap;
-    private LocalDate classStartDate;
-    private LocalDate classEndDate;
+    private LocalDateTime classStartDate;
+    private LocalDateTime classEndDate;
 
     @Builder
     public RequestAddClass(String classTitle, String classContent,
                            BigDecimal classPrice, int classMaxCap,
-                           LocalDate classStartDate, LocalDate classEndDate) {
+                           LocalDateTime classStartDate, LocalDateTime classEndDate) {
         this.classTitle = classTitle;
         this.classContent = classContent;
         this.classPrice = classPrice;

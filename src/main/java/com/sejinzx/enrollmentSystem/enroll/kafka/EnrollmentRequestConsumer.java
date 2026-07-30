@@ -1,10 +1,8 @@
 package com.sejinzx.enrollmentSystem.enroll.kafka;
 
-import com.sejinzx.enrollmentSystem.classmgmt.service.ClassService;
 import com.sejinzx.enrollmentSystem.enroll.dto.EnrollmentRequestedEvent;
 import com.sejinzx.enrollmentSystem.enroll.service.EnrollService;
 import com.sejinzx.enrollmentSystem.error.BusinessException;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;

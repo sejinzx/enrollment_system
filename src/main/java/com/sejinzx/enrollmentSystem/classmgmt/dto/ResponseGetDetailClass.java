@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 public class ResponseGetDetailClass {
@@ -16,8 +16,8 @@ public class ResponseGetDetailClass {
     private BigDecimal classPrice;
     private int classMaxCap;
     private int classCurrApps;
-    private LocalDate classStartDate;
-    private LocalDate classEndDate;
+    private LocalDateTime classStartDate;
+    private LocalDateTime classEndDate;
     private ClassState classState;
 
 
@@ -25,7 +25,7 @@ public class ResponseGetDetailClass {
 
     public ResponseGetDetailClass(Long classSeq, String classTitle, String classContent,
                                   BigDecimal classPrice, int classMaxCap, int classCurrApps,
-                                  LocalDate classStartDate, LocalDate classEndDate, ClassState classState) {
+                                  LocalDateTime classStartDate, LocalDateTime classEndDate, ClassState classState) {
         this.classSeq = classSeq;
         this.classTitle = classTitle;
         this.classContent = classContent;
