@@ -22,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -207,7 +208,7 @@ public class EnrollService {
 
         // 결제 후 3일 지났을 시 취소 불가
         if(enrollEntity.getEnrollState() == EnrollState.CONFIRMED &&
-                LocalDate.now().isAfter(enrollEntity.getEnrollUpdateDate().plusDays(3))) {
+                LocalDateTime.now().isAfter(enrollEntity.getEnrollUpdateDate().plusDays(3))) {
             throw new BusinessException(ErrorCode.CANCEL_PERIOD_EXPIRED);
         }
     }

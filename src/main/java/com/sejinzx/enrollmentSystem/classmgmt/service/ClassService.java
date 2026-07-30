@@ -18,7 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -194,7 +194,7 @@ public class ClassService {
     @Transactional
     public void updateClassState() {
 
-        LocalDate today = LocalDate.now();
+        LocalDateTime today = LocalDateTime.now();
 
         // 1. 모집 예정 -> 모집중 변경
         classRepository.findByClassStateAndClassStartDateLessThanEqual(ClassState.DRAFT, today)

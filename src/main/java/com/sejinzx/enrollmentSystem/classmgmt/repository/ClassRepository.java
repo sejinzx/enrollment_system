@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,12 +36,12 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
 
     List<ClassEntity> findByClassStateAndClassStartDateLessThanEqual(
             ClassState classState,
-            LocalDate date
+            LocalDateTime datetime
     );
 
     List<ClassEntity> findByClassStateAndClassEndDateBefore(
             ClassState classState,
-            LocalDate date
+            LocalDateTime datetime
     );
 
 }
