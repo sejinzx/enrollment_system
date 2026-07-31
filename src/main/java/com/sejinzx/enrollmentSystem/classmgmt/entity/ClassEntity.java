@@ -45,7 +45,7 @@ public class ClassEntity {
     private LocalDateTime classEndDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "class_state", nullable = false, length = 20)
+    @Column(name = "class_state", nullable = false, columnDefinition = "VARCHAR(20)")
     private ClassState classState;
 
     @Column(name = "class_create_date", nullable = false)

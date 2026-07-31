@@ -8,10 +8,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handle(BusinessException e) {
-
+    public ResponseEntity<ErrorResponse> handleBusinessException(
+            BusinessException e
+    ) {
         ErrorCode code = e.getErrorCode();
 
+        return createResponse(code);
+    }
+
+    private ResponseEntity<ErrorResponse> createResponse(ErrorCode code) {
         return ResponseEntity
                 .status(code.getStatus())
                 .body(new ErrorResponse(

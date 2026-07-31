@@ -1,27 +1,38 @@
 package com.sejinzx.enrollmentSystem.enroll.service;
 
+import com.sejinzx.enrollmentSystem.MySqlContainerTest;
 import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassEntity;
 import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassState;
 import com.sejinzx.enrollmentSystem.classmgmt.repository.ClassRepository;
 import com.sejinzx.enrollmentSystem.enroll.repository.EnrollRepository;
+import com.sejinzx.enrollmentSystem.error.BusinessException;
+import com.sejinzx.enrollmentSystem.error.ErrorCode;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class EnrollServiceConcurrencyTest {
+class EnrollServiceConcurrencyTest extends MySqlContainerTest {
+
+    private static final int CLASS_CAPACITY = 100;
+    private static final int REQUEST_COUNT = 200;
 
     @Autowired
     private EnrollService enrollService;
@@ -36,130 +47,224 @@ class EnrollServiceConcurrencyTest {
     private ClassRepository classRepository;
 
     @Test
-    void concurrentEnrollTest() throws Exception {
-
-        long startTime = System.currentTimeMillis();
+    @DisplayName("정원 100명인 강의에 200명이 동시에 신청해도 100명만 성공")
+    void processEnroll_concurrentRequests_capacityMaintained() throws Exception {
 
         // given
-        UserEntity creator =
-                createCreator("creator");
+        UserEntity creator = createUser(
+                "concurrency-creator",
+                UserType.CREATOR
+        );
 
-        ClassEntity classEntity =
-                createClassEntity(creator, 100);
+        ClassEntity classEntity = createClass(
+                creator,
+                CLASS_CAPACITY
+        );
 
-        int threadCount = 200;
+        List<UserEntity> students = createStudents(REQUEST_COUNT);
 
         ExecutorService executorService =
-                Executors.newFixedThreadPool(threadCount);
+                Executors.newFixedThreadPool(REQUEST_COUNT);
 
-        CountDownLatch startLatch =
-                new CountDownLatch(1);
+        CountDownLatch startLatch = new CountDownLatch(1);
 
-        List<Future<String>> futures =
-                new ArrayList<>();
+        List<Future<EnrollResult>> futures = new ArrayList<>();
 
-        // when
-        for (int i = 0; i < threadCount; i++) {
+        try {
+            // when
+            for (UserEntity student : students) {
+                futures.add(
+                        executorService.submit(() ->
+                                requestEnroll(
+                                        startLatch,
+                                        classEntity.getClassSeq(),
+                                        student.getUserId()
+                                )
+                        )
+                );
+            }
 
-            UserEntity student =
-                    createStudent("student" + i);
+            startLatch.countDown();
 
-            int idx = i + 1;
+            int successCount = 0;
+            int capacityFullCount = 0;
 
-            futures.add(
-                    executorService.submit(() -> {
+            for (Future<EnrollResult> future : futures) {
+                EnrollResult result = future.get();
 
-                        try {
-                            startLatch.await();
+                if (result.success()) {
+                    successCount++;
+                } else if (result.errorCode() == ErrorCode.CLASS_CAPACITY_FULL) {
+                    capacityFullCount++;
+                }
+            }
 
-                            enrollService.processEnroll(
-                                    classEntity.getClassSeq(),
-                                    student.getUserId()
-                            );
+            // then
+            long enrollCount =
+                    enrollRepository.countByClassEntity_ClassSeq(
+                            classEntity.getClassSeq()
+                    );
 
-                            return "SUCCESS - idx: " + idx;
+            ClassEntity resultClass = classRepository.findById(
+                    classEntity.getClassSeq()
+            ).orElseThrow();
 
-                        } catch (Exception e) {
+            Assertions.assertEquals(CLASS_CAPACITY, successCount);
+            Assertions.assertEquals(REQUEST_COUNT - CLASS_CAPACITY, capacityFullCount);
+            Assertions.assertEquals(CLASS_CAPACITY, enrollCount);
+            Assertions.assertEquals(CLASS_CAPACITY, resultClass.getClassCurrApps());
 
-                            return "FAIL - idx: " + idx +
-                                    ", reason: " +
-                                    e.getMessage();
-                        }
-                    })
+        } finally {
+            executorService.shutdown();
+            executorService.awaitTermination(
+                    10,
+                    TimeUnit.SECONDS
+            );
+        }
+    }
+
+    @Test
+    @DisplayName("동일 사용자가 동시에 여러 번 신청해도 한 건만 등록")
+    void processEnroll_sameUserConcurrent_duplicatePrevented() throws Exception {
+
+        // given
+        UserEntity creator = createUser(
+                "duplicate-creator",
+                UserType.CREATOR
+        );
+
+        UserEntity student = createUser(
+                "duplicate-student",
+                UserType.CLASSMATE
+        );
+
+        ClassEntity classEntity = createClass(creator, 10);
+
+        int requestCount = 20;
+
+        ExecutorService executorService =
+                Executors.newFixedThreadPool(requestCount);
+
+        CountDownLatch startLatch = new CountDownLatch(1);
+
+        List<Future<EnrollResult>> futures = new ArrayList<>();
+
+        try {
+            // when
+            for (int i = 0; i < requestCount; i++) {
+                futures.add(
+                        executorService.submit(() ->
+                                requestEnroll(
+                                        startLatch,
+                                        classEntity.getClassSeq(),
+                                        student.getUserId()
+                                )
+                        )
+                );
+            }
+
+            startLatch.countDown();
+
+            int successCount = 0;
+            int duplicateCount = 0;
+
+            for (Future<EnrollResult> future : futures) {
+                EnrollResult result = future.get();
+
+                if (result.success()) {
+                    successCount++;
+                } else if (result.errorCode() == ErrorCode.DUPLICATE_ENROLL) {
+                    duplicateCount++;
+                }
+            }
+
+            // then
+            long enrollCount =
+                    enrollRepository.countByClassEntity_ClassSeq(
+                            classEntity.getClassSeq()
+                    );
+
+            Assertions.assertEquals(1, successCount);
+            Assertions.assertEquals(requestCount - 1, duplicateCount);
+            Assertions.assertEquals(1, enrollCount);
+
+        } finally {
+            executorService.shutdown();
+        }
+    }
+
+    private record EnrollResult(
+            boolean success,
+            ErrorCode errorCode
+    ) {
+    }
+
+    private EnrollResult requestEnroll(
+            CountDownLatch startLatch,
+            Long classSeq,
+            String userId
+    ) {
+        try {
+            startLatch.await();
+
+            enrollService.processEnroll(classSeq, userId);
+
+            return new EnrollResult(true, null);
+
+        } catch (BusinessException exception) {
+            return new EnrollResult(
+                    false,
+                    exception.getErrorCode()
+            );
+
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+
+            throw new RuntimeException(exception);
+        }
+    }
+    private List<UserEntity> createStudents(int count) {
+
+        List<UserEntity> students = new ArrayList<>();
+
+        for (int i = 0; i < count; i++) {
+            students.add(
+                    createUser(
+                            "concurrency-student-" + i,
+                            UserType.CLASSMATE
+                    )
             );
         }
 
-        startLatch.countDown();
-
-        System.out.println("===== 결과 =====");
-
-        for (Future<String> future : futures) {
-            System.out.println(future.get());
-        }
-
-        executorService.shutdown();
-        executorService.awaitTermination(
-                5,
-                TimeUnit.SECONDS
-        );
-
-        // then
-        long enrollCount =
-                enrollRepository.count();
-
-        System.out.println(
-                "최종 신청 인원 : " + enrollCount
-        );
-
-        long endTime = System.currentTimeMillis();
-
-        System.out.println(
-                "총 실행 시간 : " +
-                        (endTime - startTime) + "ms"
-        );
-
-        Assertions.assertEquals(
-                100,
-                enrollCount
-        );
+        return students;
     }
 
-    private UserEntity createCreator(String userId) {
-
+    private UserEntity createUser(
+            String userId,
+            UserType userType
+    ) {
         return userRepository.save(
                 UserEntity.builder()
                         .userId(userId)
                         .userPw("1234")
-                        .userType(UserType.CREATOR)
+                        .userType(userType)
                         .build()
         );
     }
 
-    private UserEntity createStudent(String userId) {
-
-        return userRepository.save(
-                UserEntity.builder()
-                        .userId(userId)
-                        .userPw("1234")
-                        .userType(UserType.CLASSMATE)
-                        .build()
-        );
-    }
-
-    private ClassEntity createClassEntity(
+    private ClassEntity createClass(
             UserEntity creator,
             int maxCap
     ) {
-
         return classRepository.save(
                 ClassEntity.builder()
-                        .classTitle("test class")
+                        .classTitle("concurrency test class")
                         .classContent("content")
                         .classPrice(BigDecimal.valueOf(1000))
                         .classMaxCap(maxCap)
                         .classState(ClassState.OPEN)
-                        .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(10))
+                        .classStartDate(LocalDateTime.now())
+                        .classEndDate(LocalDateTime.now().plusDays(10))
                         .user(creator)
                         .build()
         );

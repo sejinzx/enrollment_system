@@ -17,4 +17,5 @@ public interface EnrollRepository extends JpaRepository<EnrollEntity, Long>  {
     @EntityGraph(attributePaths = "user")
     Page<EnrollEntity> findByClassEntity_ClassSeqAndEnrollState(Long classSeq, EnrollState enrollState, Pageable pageable);
 
+    long countByClassEntity_ClassSeq(Long classSeq);
 }

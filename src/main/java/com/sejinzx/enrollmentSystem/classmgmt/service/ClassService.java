@@ -178,14 +178,14 @@ public class ClassService {
     @Transactional
     public void increaseCurrApps(Long classSeq) {
 
-        ClassEntity classEntity =
-                classRepository.findById(classSeq)
-                        .orElseThrow(() ->
-                                new BusinessException(ErrorCode.CLASS_NOT_FOUND));
+        int updatedCount =
+                classRepository.increaseCurrAppsIfAvailable(classSeq);
 
-        validateEnrollAvailable(classEntity);
-
-        classEntity.increaseCurrApps();
+        if (updatedCount == 0) {
+            throw new BusinessException(
+                    ErrorCode.CLASS_CAPACITY_FULL
+            );
+        }
     }
 
     /**
@@ -201,7 +201,7 @@ public class ClassService {
                 .forEach(ClassEntity::openClass);
 
         // 2. 모집중 -> 모집 종료 변경
-        classRepository.findByClassStateAndClassEndDateBefore(ClassState.OPEN, today)
+        classRepository.findByClassStateAndClassEndDateLessThanEqual(ClassState.OPEN, today)
                 .forEach(ClassEntity::closeClass);
     }
 

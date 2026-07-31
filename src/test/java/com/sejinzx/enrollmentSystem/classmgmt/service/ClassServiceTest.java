@@ -1,5 +1,6 @@
 package com.sejinzx.enrollmentSystem.classmgmt.service;
 
+import com.sejinzx.enrollmentSystem.MySqlContainerTest;
 import com.sejinzx.enrollmentSystem.classmgmt.dto.RequestAddClass;
 import com.sejinzx.enrollmentSystem.classmgmt.dto.RequestUpdateClass;
 import com.sejinzx.enrollmentSystem.classmgmt.entity.ClassEntity;
@@ -10,20 +11,21 @@ import com.sejinzx.enrollmentSystem.error.ErrorCode;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
-import org.junit.jupiter.api.AfterEach;
+import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class ClassServiceTest {
+@Transactional
+class ClassServiceTest extends MySqlContainerTest {
 
     @Autowired
     private ClassService classService;
@@ -34,21 +36,9 @@ public class ClassServiceTest {
     @Autowired
     private UserRepository userRepository;
 
-    @BeforeEach
-    void before() {
-        System.out.println("===== 테스트 시작 =====");
-    }
-
-    @AfterEach
-    void after() {
-        System.out.println("===== 테스트 종료 =====");
-    }
-
-    /**
-     * 강의 등록 성공 테스트
-     */
     @Test
-    void createClass_success_test() {
+    @DisplayName("강의 등록 성공")
+    void createClass_success() {
 
         // given
         UserEntity creator = createCreator("creator1");
@@ -58,176 +48,367 @@ public class ClassServiceTest {
                 .classContent("Backend")
                 .classPrice(BigDecimal.valueOf(10000))
                 .classMaxCap(20)
-                .classStartDate(LocalDate.now().plusDays(1))
-                .classEndDate(LocalDate.now().plusDays(10))
+                .classStartDate(LocalDateTime.now().plusDays(1))
+                .classEndDate(LocalDateTime.now().plusDays(10))
                 .build();
 
         // when
-        Long classSeq =
-                classService.createClass(
-                        request,
-                        creator.getUserId()
-                );
+        Long classSeq = classService.createClass(
+                request,
+                creator.getUserId()
+        );
 
         // then
-        ClassEntity result =
-                classRepository.findById(classSeq)
-                        .orElseThrow();
+        ClassEntity result = classRepository.findById(classSeq)
+                .orElseThrow();
 
-        Assertions.assertEquals(
-                "Spring",
-                result.getClassTitle()
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(
+                        "Spring",
+                        result.getClassTitle()
+                ),
+                () -> Assertions.assertEquals(
+                        "Backend",
+                        result.getClassContent()
+                ),
+                () -> Assertions.assertEquals(
+                        ClassState.DRAFT,
+                        result.getClassState()
+                ),
+                () -> Assertions.assertEquals(
+                        0,
+                        BigDecimal.valueOf(10000)
+                                .compareTo(result.getClassPrice())
+                ),
+                () -> Assertions.assertEquals(
+                        creator.getUserSeq(),
+                        result.getUser().getUserSeq()
+                )
         );
-
-        Assertions.assertEquals(
-                ClassState.DRAFT,
-                result.getClassState()
-        );
-
-        System.out.println("강의 등록 성공");
     }
 
-    /**
-     * 강의 수정 성공 테스트
-     */
     @Test
-    void updateClass_success_test() {
+    @DisplayName("강의 수정 성공")
+    void updateClass_success() {
 
         // given
         UserEntity creator = createCreator("creator2");
 
-        ClassEntity classEntity =
-                createClassEntity(
-                        creator,
-                        ClassState.DRAFT
-                );
+        ClassEntity classEntity = createClassEntity(
+                creator,
+                ClassState.DRAFT
+        );
 
-        RequestUpdateClass request =
-                RequestUpdateClass.builder()
-                        .classTitle("new title")
-                        .classContent("new content")
-                        .classPrice(BigDecimal.valueOf(5000))
-                        .classMaxCap(30)
-                        .classStartDate(LocalDate.now().plusDays(2))
-                        .classEndDate(LocalDate.now().plusDays(20))
-                        .build();
+        RequestUpdateClass request = createUpdateRequest();
 
         // when
-        classService.updateClass(
+        Long resultClassSeq = classService.updateClass(
                 classEntity.getClassSeq(),
                 request,
                 creator.getUserId()
         );
 
         // then
-        ClassEntity result =
-                classRepository.findById(
-                        classEntity.getClassSeq()
-                ).orElseThrow();
+        ClassEntity result = classRepository.findById(
+                classEntity.getClassSeq()
+        ).orElseThrow();
 
-        Assertions.assertEquals(
-                "new title",
-                result.getClassTitle()
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(
+                        classEntity.getClassSeq(),
+                        resultClassSeq
+                ),
+                () -> Assertions.assertEquals(
+                        "new title",
+                        result.getClassTitle()
+                ),
+                () -> Assertions.assertEquals(
+                        "new content",
+                        result.getClassContent()
+                ),
+                () -> Assertions.assertEquals(
+                        0,
+                        BigDecimal.valueOf(5000)
+                                .compareTo(result.getClassPrice())
+                ),
+                () -> Assertions.assertEquals(
+                        30,
+                        result.getClassMaxCap()
+                )
         );
-
-        Assertions.assertEquals(
-                0,
-                BigDecimal.valueOf(5000)
-                        .compareTo(result.getClassPrice())
-        );
-
-        System.out.println("강의 수정 성공");
     }
 
-    /**
-     * 모집중 강의 수정 실패 테스트
-     */
     @Test
-    void updateClass_open_fail_test() {
+    @DisplayName("모집 중인 강의 수정 시 실패")
+    void updateClass_open_fail() {
 
         // given
         UserEntity creator = createCreator("creator3");
 
-        ClassEntity classEntity =
-                createClassEntity(
-                        creator,
-                        ClassState.OPEN
-                );
+        ClassEntity classEntity = createClassEntity(
+                creator,
+                ClassState.OPEN
+        );
 
-        RequestUpdateClass request =
-                RequestUpdateClass.builder()
-                        .classTitle("update")
-                        .classContent("update")
-                        .classPrice(BigDecimal.valueOf(1000))
-                        .classMaxCap(10)
-                        .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(5))
-                        .build();
+        RequestUpdateClass request = createUpdateRequest();
 
         // when
-        BusinessException exception =
-                Assertions.assertThrows(
-                        BusinessException.class,
-                        () -> classService.updateClass(
-                                classEntity.getClassSeq(),
-                                request,
-                                creator.getUserId()
-                        )
-                );
+        BusinessException exception = Assertions.assertThrows(
+                BusinessException.class,
+                () -> classService.updateClass(
+                        classEntity.getClassSeq(),
+                        request,
+                        creator.getUserId()
+                )
+        );
 
         // then
         Assertions.assertEquals(
                 ErrorCode.CLASS_MODIFICATION_NOT_ALLOWED,
                 exception.getErrorCode()
         );
-
-        System.out.println("모집중 강의 수정 실패");
     }
 
-    /**
-     * 강의 삭제 성공 테스트
-     */
     @Test
-    void deleteClass_success_test() {
+    @DisplayName("모집 종료된 강의 수정 시 실패")
+    void updateClass_closed_fail() {
 
         // given
         UserEntity creator = createCreator("creator4");
 
-        ClassEntity classEntity =
-                createClassEntity(
-                        creator,
-                        ClassState.DRAFT
-                );
+        ClassEntity classEntity = createClassEntity(
+                creator,
+                ClassState.CLOSED
+        );
+
+        RequestUpdateClass request = createUpdateRequest();
 
         // when
-        classService.deleteClass(
+        BusinessException exception = Assertions.assertThrows(
+                BusinessException.class,
+                () -> classService.updateClass(
+                        classEntity.getClassSeq(),
+                        request,
+                        creator.getUserId()
+                )
+        );
+
+        // then
+        Assertions.assertEquals(
+                ErrorCode.CLASS_MODIFICATION_NOT_ALLOWED,
+                exception.getErrorCode()
+        );
+    }
+
+    @Test
+    @DisplayName("다른 사용자의 강의 수정 불가")
+    void updateClass_otherUser_fail() {
+
+        // given
+        UserEntity creator = createCreator("creator5");
+        UserEntity otherCreator = createCreator("creator6");
+
+        ClassEntity classEntity = createClassEntity(
+                creator,
+                ClassState.DRAFT
+        );
+
+        RequestUpdateClass request = createUpdateRequest();
+
+        // when
+        BusinessException exception = Assertions.assertThrows(
+                BusinessException.class,
+                () -> classService.updateClass(
+                        classEntity.getClassSeq(),
+                        request,
+                        otherCreator.getUserId()
+                )
+        );
+
+        // then
+        Assertions.assertEquals(
+                ErrorCode.USERS_CLASS_NOT_FOUND,
+                exception.getErrorCode()
+        );
+    }
+
+    @Test
+    @DisplayName("강의 삭제 성공")
+    void deleteClass_success() {
+
+        // given
+        UserEntity creator = createCreator("creator7");
+
+        ClassEntity classEntity = createClassEntity(
+                creator,
+                ClassState.DRAFT
+        );
+
+        // when
+        Long resultClassSeq = classService.deleteClass(
                 classEntity.getClassSeq(),
                 creator.getUserId()
         );
 
         // then
-        ClassEntity result =
-                classRepository.findById(
-                        classEntity.getClassSeq()
-                ).orElseThrow();
+        ClassEntity result = classRepository.findById(
+                classEntity.getClassSeq()
+        ).orElseThrow();
 
-        Assertions.assertTrue(
-                result.isClassDeleted()
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(
+                        classEntity.getClassSeq(),
+                        resultClassSeq
+                ),
+                () -> Assertions.assertTrue(
+                        result.isClassDeleted()
+                )
         );
-
-        System.out.println("강의 삭제 성공");
     }
 
-    /**
-     * 클래스 상태 변경 테스트
-     */
     @Test
-    void updateClassState_test() {
+    @DisplayName("모집 중인 강의 삭제 시 실패")
+    void deleteClass_open_fail() {
 
         // given
-        UserEntity creator = createCreator("creator5");
+        UserEntity creator = createCreator("creator8");
 
-        LocalDate today = LocalDate.now();
+        ClassEntity classEntity = createClassEntity(
+                creator,
+                ClassState.OPEN
+        );
+
+        // when
+        BusinessException exception = Assertions.assertThrows(
+                BusinessException.class,
+                () -> classService.deleteClass(
+                        classEntity.getClassSeq(),
+                        creator.getUserId()
+                )
+        );
+
+        // then
+        Assertions.assertEquals(
+                ErrorCode.CLASS_DELETE_NOT_ALLOWED,
+                exception.getErrorCode()
+        );
+    }
+
+    @Test
+    @DisplayName("모집 종료된 강의 삭제 시 실패")
+    void deleteClass_closed_fail() {
+
+        // given
+        UserEntity creator = createCreator("creator9");
+
+        ClassEntity classEntity = createClassEntity(
+                creator,
+                ClassState.CLOSED
+        );
+
+        // when
+        BusinessException exception = Assertions.assertThrows(
+                BusinessException.class,
+                () -> classService.deleteClass(
+                        classEntity.getClassSeq(),
+                        creator.getUserId()
+                )
+        );
+
+        // then
+        Assertions.assertEquals(
+                ErrorCode.CLASS_DELETE_NOT_ALLOWED,
+                exception.getErrorCode()
+        );
+    }
+
+    @Test
+    @DisplayName("다른 사용자의 강의 삭제 불가")
+    void deleteClass_otherUser_fail() {
+
+        // given
+        UserEntity creator = createCreator("creator10");
+        UserEntity otherCreator = createCreator("creator11");
+
+        ClassEntity classEntity = createClassEntity(
+                creator,
+                ClassState.DRAFT
+        );
+
+        // when
+        BusinessException exception = Assertions.assertThrows(
+                BusinessException.class,
+                () -> classService.deleteClass(
+                        classEntity.getClassSeq(),
+                        otherCreator.getUserId()
+                )
+        );
+
+        // then
+        Assertions.assertEquals(
+                ErrorCode.USERS_CLASS_NOT_FOUND,
+                exception.getErrorCode()
+        );
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 강의 조회 시 실패")
+    void getClass_notFound_fail() {
+
+        // given
+        Long notExistClassSeq = 999999L;
+
+        // when
+        BusinessException exception = Assertions.assertThrows(
+                BusinessException.class,
+                () -> classService.getClass(notExistClassSeq)
+        );
+
+        // then
+        Assertions.assertEquals(
+                ErrorCode.CLASS_NOT_FOUND,
+                exception.getErrorCode()
+        );
+    }
+
+    @Test
+    @DisplayName("삭제된 강의 조회 시 실패")
+    void getClass_deleted_fail() {
+
+        // given
+        UserEntity creator = createCreator("creator12");
+
+        ClassEntity classEntity = createClassEntity(
+                creator,
+                ClassState.DRAFT
+        );
+
+        classEntity.deleteClass();
+        classRepository.flush();
+
+        // when
+        BusinessException exception = Assertions.assertThrows(
+                BusinessException.class,
+                () -> classService.getClass(
+                        classEntity.getClassSeq()
+                )
+        );
+
+        // then
+        Assertions.assertEquals(
+                ErrorCode.CLASS_NOT_FOUND,
+                exception.getErrorCode()
+        );
+    }
+
+    @Test
+    @DisplayName("클래스 상태 변경 성공")
+    void updateClassState_success() {
+
+        // given
+        UserEntity creator = createCreator("creator13");
+
+        LocalDateTime today = LocalDateTime.now();
 
         ClassEntity draftClass = classRepository.save(
                 ClassEntity.builder()
@@ -259,31 +440,43 @@ public class ClassServiceTest {
         classService.updateClassState();
 
         // then
-        ClassEntity resultDraft =
-                classRepository.findById(
-                        draftClass.getClassSeq()
-                ).orElseThrow();
+        ClassEntity resultDraft = classRepository.findById(
+                draftClass.getClassSeq()
+        ).orElseThrow();
 
-        ClassEntity resultOpen =
-                classRepository.findById(
-                        openClass.getClassSeq()
-                ).orElseThrow();
+        ClassEntity resultOpen = classRepository.findById(
+                openClass.getClassSeq()
+        ).orElseThrow();
 
-        Assertions.assertEquals(
-                ClassState.OPEN,
-                resultDraft.getClassState()
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(
+                        ClassState.OPEN,
+                        resultDraft.getClassState()
+                ),
+                () -> Assertions.assertEquals(
+                        ClassState.CLOSED,
+                        resultOpen.getClassState()
+                )
         );
-
-        Assertions.assertEquals(
-                ClassState.CLOSED,
-                resultOpen.getClassState()
-        );
-
-        System.out.println("모집 상태 변경 성공");
     }
 
     /**
-     * creator 생성
+     * 수정 요청 생성
+     */
+    private RequestUpdateClass createUpdateRequest() {
+
+        return RequestUpdateClass.builder()
+                .classTitle("new title")
+                .classContent("new content")
+                .classPrice(BigDecimal.valueOf(5000))
+                .classMaxCap(30)
+                .classStartDate(LocalDateTime.now().plusDays(2))
+                .classEndDate(LocalDateTime.now().plusDays(20))
+                .build();
+    }
+
+    /**
+     * 강사 생성
      */
     private UserEntity createCreator(String userId) {
 
@@ -297,7 +490,7 @@ public class ClassServiceTest {
     }
 
     /**
-     * class 생성
+     * 강의 생성
      */
     private ClassEntity createClassEntity(
             UserEntity creator,
@@ -310,8 +503,8 @@ public class ClassServiceTest {
                         .classContent("content")
                         .classPrice(BigDecimal.valueOf(1000))
                         .classMaxCap(10)
-                        .classStartDate(LocalDate.now())
-                        .classEndDate(LocalDate.now().plusDays(5))
+                        .classStartDate(LocalDateTime.now())
+                        .classEndDate(LocalDateTime.now().plusDays(5))
                         .classState(state)
                         .user(creator)
                         .build()
