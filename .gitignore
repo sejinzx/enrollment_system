@@ -38,5 +38,3 @@ out/
 
 ### environment ###
 .env
-
-src/test/resources/application-test.properties
