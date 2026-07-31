@@ -28,7 +28,7 @@ public class UserEntity {
     private String userPw;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "user_type", nullable = false, length = 20)
+    @Column(name = "user_type", nullable = false, columnDefinition = "VARCHAR(20)")
     private UserType userType;
 
     @Column(name = "user_create_date", nullable = false)

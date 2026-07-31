@@ -32,7 +32,7 @@ public class EnrollEntity {
     private Long enrollSeq;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "enroll_state", nullable = false, length = 20)
+    @Column(name = "enroll_state", nullable = false, columnDefinition = "VARCHAR(20)")
     private EnrollState enrollState;
 
     @Column(name = "enroll_create_date", nullable = false)

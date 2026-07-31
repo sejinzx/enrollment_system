@@ -16,6 +16,8 @@ import com.sejinzx.enrollmentSystem.user.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -51,37 +53,30 @@ public class EnrollService {
     @Transactional
     public Long processEnroll(Long classSeq, String userId) {
 
-        // 1. 유저 조회
         UserEntity user = userService.validateClassmate(userId);
 
-        // 2. 수강 신청 여부 확인
         Optional<EnrollEntity> opt =
-                enrollRepository.findByUser_UserSeqAndClassEntity_ClassSeq(user.getUserSeq(), classSeq);
+                enrollRepository.findByUser_UserSeqAndClassEntity_ClassSeq(
+                        user.getUserSeq(),
+                        classSeq
+                );
 
-        // 3-1. 수강신청 중복
-        if (opt.isPresent() && opt.get().getEnrollState() != EnrollState.CANCELLED) {
+        if (opt.isPresent()
+                && opt.get().getEnrollState() != EnrollState.CANCELLED) {
             throw new BusinessException(ErrorCode.DUPLICATE_ENROLL);
         }
 
         ClassEntity classEntity = classService.getClass(classSeq);
 
-        // 3-2. 수강 인원 초과
-        if (classEntity.getClassCurrApps() >= classEntity.getClassMaxCap()) {
-            throw new BusinessException(ErrorCode.CLASS_CAPACITY_FULL);
-        }
-
-        // 4. 수강 인원 증가
+        // 조건부 UPDATE로 정원 확인 및 증가
         classService.increaseCurrApps(classSeq);
 
         EnrollEntity enrollEntity;
 
-        // 4-1. 재신청
         if (opt.isPresent()) {
             enrollEntity = opt.get();
             enrollEntity.reEnroll();
-        }
-        // 4-2. 새 신청
-        else {
+        } else {
             enrollEntity = EnrollEntity.builder()
                     .user(user)
                     .classEntity(classEntity)
@@ -89,7 +84,25 @@ public class EnrollService {
                     .build();
         }
 
-        return enrollRepository.save(enrollEntity).getEnrollSeq();
+        try {
+            return enrollRepository.saveAndFlush(enrollEntity)
+                    .getEnrollSeq();
+
+        } catch (DataIntegrityViolationException e) {
+            Throwable root =
+                    NestedExceptionUtils.getMostSpecificCause(e);
+
+            String message = root.getMessage();
+
+            if (message != null
+                    && message.contains("uq_enrollment_user_class")) {
+                throw new BusinessException(
+                        ErrorCode.DUPLICATE_ENROLL
+                );
+            }
+
+            throw e;
+        }
     }
 
     /**
@@ -212,7 +225,4 @@ public class EnrollService {
             throw new BusinessException(ErrorCode.CANCEL_PERIOD_EXPIRED);
         }
     }
-
-
-
 }
