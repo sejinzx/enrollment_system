@@ -18,7 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. JDK 17 설치
+      # 2. JDK 17 설치 및 Gradle 캐시 적용
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -34,13 +34,15 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-        run: ./gradlew test --stacktrace
+          SPRING_PROFILES_ACTIVE: test
+          SPRING_KAFKA_LISTENER_AUTO_STARTUP: false
+        run: ./gradlew test --no-daemon --build-cache
 
-      # 5. 애플리케이션 빌드
+      # 5. 실행 가능한 JAR 생성
       - name: Build application
         env:
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-        run: ./gradlew clean build -x test
+        run: ./gradlew bootJar --no-daemon --build-cache
 
       # 6. Docker Hub 로그인
       - name: Login to Docker Hub
@@ -79,9 +81,6 @@ jobs:
             cd /home/ubuntu/enrollment_system
 
             docker compose pull
-
             docker compose up -d --force-recreate
-
             docker image prune -f
-
             docker compose ps
