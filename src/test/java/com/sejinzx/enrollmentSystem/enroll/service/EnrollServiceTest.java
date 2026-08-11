@@ -144,39 +144,48 @@ class EnrollServiceTest extends MySqlContainerTest {
     }
 
     @Test
-    @DisplayName("취소한 수강 신청 재신청 시 성공")
+    @DisplayName("수강 신청 취소 후 재신청 성공")
     void processEnroll_cancelled_reEnroll_success() {
-
         // given
         UserEntity creator = createUser("creator4", UserType.CREATOR);
         UserEntity student = createUser("student4", UserType.CLASSMATE);
-        ClassEntity classEntity = createClass(creator, 10);
+        ClassEntity classEntity = createClass(creator, 1);
 
-        EnrollEntity enrollEntity = createEnroll(
-                student,
-                classEntity,
-                EnrollState.CANCELLED
+        // 최초 수강 신청
+        Long enrollSeq = enrollService.processEnroll(
+                classEntity.getClassSeq(),
+                student.getUserId()
+        );
+
+        // 수강 신청 취소
+        enrollService.deleteEnroll(
+                enrollSeq,
+                student.getUserId()
         );
 
         // when
-        Long resultEnrollSeq = enrollService.processEnroll(
+        // 취소 후 동일 강의 재신청
+        Long reEnrollSeq = enrollService.processEnroll(
                 classEntity.getClassSeq(),
                 student.getUserId()
         );
 
         // then
-        EnrollEntity result = enrollRepository.findById(
-                enrollEntity.getEnrollSeq()
+        EnrollEntity reEnroll = enrollRepository.findById(reEnrollSeq)
+                .orElseThrow();
+
+        ClassEntity updatedClass = classRepository.findById(
+                classEntity.getClassSeq()
         ).orElseThrow();
 
         Assertions.assertAll(
                 () -> Assertions.assertEquals(
-                        enrollEntity.getEnrollSeq(),
-                        resultEnrollSeq
+                        EnrollState.PENDING,
+                        reEnroll.getEnrollState()
                 ),
                 () -> Assertions.assertEquals(
-                        EnrollState.PENDING,
-                        result.getEnrollState()
+                        1,
+                        updatedClass.getClassCurrApps()
                 )
         );
     }
@@ -184,11 +193,13 @@ class EnrollServiceTest extends MySqlContainerTest {
     @Test
     @DisplayName("결제 전 수강 신청 취소 성공")
     void deleteEnroll_pending_success() {
-
         // given
         UserEntity creator = createUser("creator5", UserType.CREATOR);
         UserEntity student = createUser("student5", UserType.CLASSMATE);
         ClassEntity classEntity = createClass(creator, 10);
+
+        classEntity.changeCurrApps(1);
+        classRepository.saveAndFlush(classEntity);
 
         EnrollEntity enrollEntity = createEnroll(
                 student,
@@ -207,6 +218,10 @@ class EnrollServiceTest extends MySqlContainerTest {
                 enrollEntity.getEnrollSeq()
         ).orElseThrow();
 
+        ClassEntity updatedClass = classRepository.findById(
+                classEntity.getClassSeq()
+        ).orElseThrow();
+
         Assertions.assertAll(
                 () -> Assertions.assertEquals(
                         enrollEntity.getEnrollSeq(),
@@ -215,6 +230,10 @@ class EnrollServiceTest extends MySqlContainerTest {
                 () -> Assertions.assertEquals(
                         EnrollState.CANCELLED,
                         result.getEnrollState()
+                ),
+                () -> Assertions.assertEquals(
+                        0,
+                        updatedClass.getClassCurrApps()
                 )
         );
     }

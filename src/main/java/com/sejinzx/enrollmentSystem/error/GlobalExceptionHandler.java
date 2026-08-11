@@ -20,7 +20,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(code.getStatus())
                 .body(new ErrorResponse(
-                        code.getStatus(),
+                        code.getStatus().value(),
                         code.getError()
                 ));
     }
