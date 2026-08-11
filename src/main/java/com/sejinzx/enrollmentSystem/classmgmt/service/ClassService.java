@@ -175,6 +175,7 @@ public class ClassService {
         }
     }
 
+    // 수강 인원 증가
     @Transactional
     public void increaseCurrApps(Long classSeq) {
 
@@ -184,6 +185,18 @@ public class ClassService {
         if (updatedCount == 0) {
             throw new BusinessException(
                     ErrorCode.CLASS_CAPACITY_FULL
+            );
+        }
+    }
+
+    // 수강 인원 감소
+    @Transactional
+    public void decreaseCurrApps(Long classSeq) {
+        int updatedCount = classRepository.decreaseCurrApps(classSeq);
+
+        if (updatedCount == 0) {
+            throw new BusinessException(
+                    ErrorCode.CLASS_CURRENT_APPS_INVALID
             );
         }
     }

@@ -57,4 +57,13 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     """)
     int increaseCurrAppsIfAvailable(@Param("classSeq") Long classSeq);
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        update ClassEntity c
+            set c.classCurrApps = c.classCurrApps - 1
+        where c.classSeq = :classSeq
+            and c.classCurrApps > 0
+    """)
+    int decreaseCurrApps(@Param("classSeq") Long classSeq);
+
 }

@@ -110,15 +110,12 @@ public class EnrollService {
      */
     @Transactional
     public Long deleteEnroll(Long enrollSeq, String userId) {
-
-        // 1. 수강 신청 유무 확인
         EnrollEntity enrollEntity = validateMyEnroll(enrollSeq, userId);
-
-        // 2. 취소 검증
         validateCancelable(enrollEntity);
 
-        // 3. 취소
         enrollEntity.deleteEnroll();
+
+        classService.decreaseCurrApps(enrollEntity.getClassEntity().getClassSeq());
 
         return enrollEntity.getEnrollSeq();
     }
