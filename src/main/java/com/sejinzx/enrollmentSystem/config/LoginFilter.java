@@ -50,7 +50,7 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
         // LoginFilter 내부 successfulAuthentication 메서드 중 토큰 발급 부분
 
         String role = authority.getAuthority(); // 이 값은 CustomUserDetails에 의해 "ROLE_USER" 형태임
-        String token = jwtTokenProvider.createJwt(username, role, 60 * 60 * 1000L);
+        String token = jwtTokenProvider.createAccessToken(username, role);
         res.addHeader("Authorization", "Bearer " + token);
     }
 

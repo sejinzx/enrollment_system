@@ -1,7 +1,6 @@
-version: "3.8"
-
 services:
   app:
+    build: .
     image: ${DOCKER_USERNAME}/enrollment-system:latest
     env_file:
       - .env
@@ -11,11 +10,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE}?createDatabaseIfNotExist=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true&useSSL=false
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+
+    networks:
+      - my-network
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: enrollment-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - app
     networks:
       - my-network
     restart: always
@@ -47,11 +64,33 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    container_name: enrollment-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - my-network
+    restart: always
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: enrollment-redisinsight
+    ports:
+      - "5540:5540"
+    depends_on:
+      redis:
+        condition: service_started
+    networks:
+      - my-network
+    restart: always
+
   kafka:
     image: apache/kafka
     container_name: kafka
     ports:
       - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller

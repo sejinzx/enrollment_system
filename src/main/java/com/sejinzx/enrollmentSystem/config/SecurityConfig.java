@@ -2,6 +2,8 @@ package com.sejinzx.enrollmentSystem.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -23,6 +25,7 @@ public class SecurityConfig {
     private final AuthenticationConfiguration authenticationConfiguration;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtTokenProvider jwtTokenProvider;
+    private final StringRedisTemplate redisTemplate;
 
     /*
     * JWT 인증을 기반으로 한 보안 설정 적용
@@ -43,12 +46,14 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
                         // .requestMatchers("/admin").hasAuthority("ADMIN") // /admin 경로는 ADMIN 권한이 필요
+                        .requestMatchers("/api/classes/my").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/classes", "/api/classes/{classSeq:[0-9]+}").permitAll()
                         .requestMatchers("/api/classes/**").authenticated()
                         .requestMatchers("/api/enrollments/**").authenticated()
                         .anyRequest().authenticated())
 
                 // jwt 필터 추가
-                .addFilterBefore(new JWTFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new JWTFilter(jwtTokenProvider, redisTemplate), UsernamePasswordAuthenticationFilter.class)
 
                 // 로그인 필터 추가
                 .addFilterAfter(new LoginFilter(authenticationManager(), jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)

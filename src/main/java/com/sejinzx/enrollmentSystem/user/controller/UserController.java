@@ -1,5 +1,6 @@
 package com.sejinzx.enrollmentSystem.user.controller;
 
+import com.sejinzx.enrollmentSystem.user.dto.LoginTokenResponse;
 import com.sejinzx.enrollmentSystem.user.dto.RequestAddUser;
 import com.sejinzx.enrollmentSystem.user.dto.RequestLogin;
 import com.sejinzx.enrollmentSystem.user.service.UserService;
@@ -45,9 +46,27 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody RequestLogin requestLogin) {
 
+        LoginTokenResponse tokenResponse =
+                userService.loginUser(requestLogin);
+
         return ResponseEntity.ok(
-                Map.of("accessToken", userService.loginUser(requestLogin),
-                        "message", "login success")
+                Map.of(
+                        "accessToken", tokenResponse.getAccessToken(),
+                        "refreshToken", tokenResponse.getRefreshToken(),
+                        "message", "login success"
+                )
         );
+    }
+
+    @Tag(name = "User 로그아웃")
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @RequestHeader("Authorization") String authorization) {
+
+        String token = authorization.substring(7);
+
+        userService.logout(token);
+
+        return ResponseEntity.ok().build();
     }
 }
