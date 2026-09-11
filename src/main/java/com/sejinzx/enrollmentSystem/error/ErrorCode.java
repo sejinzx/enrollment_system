@@ -1,5 +1,7 @@
 package com.sejinzx.enrollmentSystem.error;
 
+import org.springframework.http.HttpStatus;
+
 public enum ErrorCode {
 
     INVALID_INPUT(400, "잘못된 요청입니다"),
@@ -23,12 +25,12 @@ public enum ErrorCode {
     private final int status;
     private final String error;
 
-    ErrorCode(int status, String error) {
+    ErrorCode(HttpStatus status, String error) {
         this.status = status;
         this.error = error;
     }
 
-    public int getStatus() {
+    public HttpStatus getStatus() {
         return status;
     }
 

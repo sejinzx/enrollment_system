@@ -460,6 +460,30 @@ class ClassServiceTest extends MySqlContainerTest {
         );
     }
 
+    @Test
+    @DisplayName("현재 신청 인원이 0명일 때 감소 시 실패")
+    void decreaseCurrApps_zero_fail() {
+
+        // given
+        UserEntity creator = createCreator("creator14");
+
+        ClassEntity classEntity = createClassEntity(creator, ClassState.OPEN);
+
+        // when
+        BusinessException exception = Assertions.assertThrows(
+                BusinessException.class,
+                () -> classService.decreaseCurrApps(
+                        classEntity.getClassSeq()
+                )
+        );
+
+        // then
+        Assertions.assertEquals(
+                ErrorCode.CLASS_CURRENT_APPS_INVALID,
+                exception.getErrorCode()
+        );
+    }
+
     /**
      * 수정 요청 생성
      */

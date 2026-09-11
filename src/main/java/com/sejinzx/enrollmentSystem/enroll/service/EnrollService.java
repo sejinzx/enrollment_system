@@ -121,6 +121,8 @@ public class EnrollService {
 
         enrollEntity.changeState();
 
+        classService.decreaseCurrApps(enrollEntity.getClassEntity().getClassSeq());
+
         return enrollEntity.getEnrollSeq();
     }
 
