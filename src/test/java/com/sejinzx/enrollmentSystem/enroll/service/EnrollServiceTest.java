@@ -12,6 +12,7 @@ import com.sejinzx.enrollmentSystem.error.ErrorCode;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +41,9 @@ class EnrollServiceTest extends MySqlContainerTest {
 
     @Autowired
     private ClassRepository classRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Test
     @DisplayName("수강 신청 성공")
@@ -170,6 +174,9 @@ class EnrollServiceTest extends MySqlContainerTest {
                 student.getUserId()
         );
 
+        entityManager.flush();
+        entityManager.clear();
+
         // then
         EnrollEntity reEnroll = enrollRepository.findById(reEnrollSeq)
                 .orElseThrow();
@@ -205,17 +212,29 @@ class EnrollServiceTest extends MySqlContainerTest {
         );
         classRepository.saveAndFlush(classEntity);
 
+        entityManager.clear();
+
+        ClassEntity savedClass = classRepository.findById(
+                classEntity.getClassSeq()
+        ).orElseThrow();
+
         EnrollEntity enrollEntity = createEnroll(
                 student,
-                classEntity,
+                savedClass,
                 EnrollState.PENDING
         );
+
+        entityManager.flush();
+        entityManager.clear();
 
         // when
         Long resultEnrollSeq = enrollService.deleteEnroll(
                 enrollEntity.getEnrollSeq(),
                 student.getUserId()
         );
+
+        entityManager.flush();
+        entityManager.clear();
 
         // then
         EnrollEntity result = enrollRepository.findById(
