@@ -4,6 +4,8 @@ public enum ErrorCode {
 
     INVALID_INPUT(400, "잘못된 요청입니다"),
     INVALID_PASSWORD(401, "비밀번호가 틀렸습니다"),
+    INVALID_REFRESH_TOKEN(401, "유효하지 않은 리프레시 토큰입니다."),
+    REFRESH_TOKEN_EXPIRED(401, "리프레시 토큰이 만료되었습니다."),
     FORBIDDEN(403, "권한이 없습니다"),
     CLASS_NOT_OPEN(403, "신청 가능한 상태가 아닙니다"),
     CLASS_MODIFICATION_NOT_ALLOWED(403, "해당 상태에서는 수정할 수 없습니다"),
@@ -15,6 +17,7 @@ public enum ErrorCode {
     DUPLICATE_USER_ID(409, "이미 존재하는 아이디입니다"),
     DUPLICATE_ENROLL(409, "이미 수강신청을 했습니다"),
     CLASS_CAPACITY_FULL(409, "정원이 초과되었습니다"),
+    CLASS_CURRENT_APPS_INVALID(409, "현재 신청 인원이 0명이라 감소할 수 없습니다."),
     CANCEL_PERIOD_EXPIRED(409, "결제 후 3일이 지나 취소할 수 없습니다");
 
     private final int status;

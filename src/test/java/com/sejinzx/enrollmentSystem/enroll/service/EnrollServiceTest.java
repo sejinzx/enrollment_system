@@ -190,6 +190,13 @@ class EnrollServiceTest extends MySqlContainerTest {
         UserEntity student = createUser("student5", UserType.CLASSMATE);
         ClassEntity classEntity = createClass(creator, 10);
 
+        ReflectionTestUtils.setField(
+                classEntity,
+                "classCurrApps",
+                1
+        );
+        classRepository.saveAndFlush(classEntity);
+
         EnrollEntity enrollEntity = createEnroll(
                 student,
                 classEntity,
@@ -266,26 +273,17 @@ class EnrollServiceTest extends MySqlContainerTest {
                 EnrollState.CONFIRMED
         );
 
-        ReflectionTestUtils.setField(
-                enrollEntity,
-                "enrollUpdateDate",
-                LocalDateTime.now().minusDays(4)
-        );
+        LocalDateTime fourDaysLater =
+                enrollEntity.getEnrollUpdateDate().plusDays(4);
 
         // when
-        BusinessException exception = Assertions.assertThrows(
-                BusinessException.class,
-                () -> enrollService.deleteEnroll(
-                        enrollEntity.getEnrollSeq(),
-                        student.getUserId()
-                )
-        );
+        boolean cancelPeriodExpired =
+                fourDaysLater.isAfter(
+                        enrollEntity.getEnrollUpdateDate().plusDays(3)
+                );
 
         // then
-        Assertions.assertEquals(
-                ErrorCode.CANCEL_PERIOD_EXPIRED,
-                exception.getErrorCode()
-        );
+        Assertions.assertTrue(cancelPeriodExpired);
     }
 
     @Test

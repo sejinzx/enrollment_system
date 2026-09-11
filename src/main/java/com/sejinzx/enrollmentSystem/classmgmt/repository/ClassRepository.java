@@ -18,6 +18,9 @@ import java.util.Optional;
 
 public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
 
+    Page<ClassEntity> findByUser_UserSeqAndClassDeletedFalse(Long userSeq, Pageable pageable);
+    Page<ClassEntity> findByUser_UserSeqAndClassStateAndClassDeletedFalse(
+            Long userSeq, ClassState state, Pageable pageable);
     Page<ClassEntity> findByClassDeletedFalse(Pageable pageable);
     Page<ClassEntity> findByClassStateAndClassDeletedFalse(ClassState tate, Pageable pageable);
     Optional<ClassEntity> findByClassSeqAndClassDeletedFalse(Long classSeq);
@@ -56,5 +59,14 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
                 and c.classCurrApps < c.classMaxCap
     """)
     int increaseCurrAppsIfAvailable(@Param("classSeq") Long classSeq);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+        update ClassEntity c
+        set c.classCurrApps = c.classCurrApps - 1
+        where c.classSeq = :classSeq
+          and c.classCurrApps > 0
+        """)
+    int decreaseCurrApps(@Param("classSeq") Long classSeq);
 
 }

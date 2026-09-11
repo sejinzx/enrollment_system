@@ -105,6 +105,13 @@ public class ClassEntity {
     }
 
     /**
+     * 현재 신청 인원 감소
+     */
+    public void decreaseCurrApps() {
+        this.classCurrApps++;
+    }
+
+    /**
      * 모집 시작
      */
     public void openClass() {

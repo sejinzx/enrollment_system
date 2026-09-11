@@ -60,6 +60,16 @@ public class ClassController {
         );
     }
 
+    @Tag(name = "내 강의 목록 조회")
+    @GetMapping("/my")
+    public ResponseEntity<?> getMyListClass(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) ClassState state,
+            Authentication auth) {
+        return ResponseEntity.ok(classService.getMyListClass(page, size, state, auth.getName()));
+    }
+
     @Tag(name = "Class 상세 조회")
     @GetMapping("/{classSeq}")
     public ResponseEntity<?> getDetailClass(@PathVariable Long classSeq) {
