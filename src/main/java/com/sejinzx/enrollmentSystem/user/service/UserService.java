@@ -3,14 +3,18 @@ package com.sejinzx.enrollmentSystem.user.service;
 import com.sejinzx.enrollmentSystem.config.JwtTokenProvider;
 import com.sejinzx.enrollmentSystem.error.BusinessException;
 import com.sejinzx.enrollmentSystem.error.ErrorCode;
+import com.sejinzx.enrollmentSystem.user.dto.LoginTokenResponse;
 import com.sejinzx.enrollmentSystem.user.dto.RequestAddUser;
 import com.sejinzx.enrollmentSystem.user.dto.RequestLogin;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
 import com.sejinzx.enrollmentSystem.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +23,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder pwEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final StringRedisTemplate redisTemplate;
 
     /**
      * 회원가입
@@ -55,22 +60,79 @@ public class UserService {
     /**
      * 로그인
      */
-    public String loginUser(RequestLogin requestLogin) {
+    public LoginTokenResponse loginUser(RequestLogin requestLogin) {
 
-        // 1. 유저 조회
         UserEntity user = findActiveUser(requestLogin.getUserId());
 
-        // 2. 비밀번호 확인
         if (!pwEncoder.matches(requestLogin.getUserPw(), user.getUserPw())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
 
-        // 3. JWT 생성
-        return jwtTokenProvider.createJwt(
+        String accessToken = jwtTokenProvider.createAccessToken(
                 user.getUserId(),
-                "ROLE_" + user.getUserType().name(),
-                3600000L
+                "ROLE_" + user.getUserType().name()
         );
+
+        String refreshToken = jwtTokenProvider.createRefreshToken(
+                user.getUserId()
+        );
+
+        redisTemplate.opsForValue().set(
+                "refresh:" + user.getUserId(),
+                refreshToken,
+                jwtTokenProvider.getRefreshTokenExpiration(),
+                TimeUnit.MILLISECONDS
+        );
+
+        return new LoginTokenResponse(
+                accessToken,
+                refreshToken
+        );
+    }
+
+    /**
+     * Access Token 재발급
+     */
+    public String reissue(String refreshToken) {
+
+        if (jwtTokenProvider.isTokenExpired(refreshToken)) {
+            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        if (!"refresh".equals(jwtTokenProvider.getTokenType(refreshToken))) {
+            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        String userId = jwtTokenProvider.getUserId(refreshToken);
+
+        String savedRefreshToken =
+                redisTemplate.opsForValue()
+                        .get("refresh:" + userId);
+
+        if (savedRefreshToken == null ||
+                !savedRefreshToken.equals(refreshToken)) {
+
+            throw new BusinessException(
+                    ErrorCode.INVALID_REFRESH_TOKEN
+            );
+        }
+
+        UserEntity user = findActiveUser(userId);
+
+        return jwtTokenProvider.createAccessToken(
+                user.getUserId(),
+                "ROLE_" + user.getUserType().name()
+        );
+    }
+
+    /**
+     * 로그아웃
+     */
+    public void logout(String accessToken) {
+
+        String userId = jwtTokenProvider.getUserId(accessToken);
+
+        redisTemplate.delete("refresh:" + userId);
     }
 
     /**

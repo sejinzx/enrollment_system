@@ -16,6 +16,13 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import com.sejinzx.enrollmentSystem.config.JwtTokenProvider;
+import com.sejinzx.enrollmentSystem.user.dto.LoginTokenResponse;
+import java.util.concurrent.TimeUnit;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -30,6 +37,12 @@ class UserServiceTest extends MySqlContainerTest {
 
     @Autowired
     private BCryptPasswordEncoder pwEncoder;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private StringRedisTemplate redisTemplate;
 
     @Test
     @DisplayName("회원가입 성공")
@@ -110,11 +123,20 @@ class UserServiceTest extends MySqlContainerTest {
                 .build();
 
         // when
-        String token = userService.loginUser(request);
+        @SuppressWarnings("unchecked")
+        ValueOperations<String, String> values = mock(ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(values);
+        LoginTokenResponse tokens = userService.loginUser(request);
 
         // then
-        assertNotNull(token);
-        assertFalse(token.isBlank());
+        assertNotNull(tokens);
+        assertEquals("loginUser1", jwtTokenProvider.getUserId(tokens.getAccessToken()));
+        assertEquals("access", jwtTokenProvider.getTokenType(tokens.getAccessToken()));
+        assertEquals(UserType.CLASSMATE, jwtTokenProvider.getRole(tokens.getAccessToken()));
+        assertEquals("loginUser1", jwtTokenProvider.getUserId(tokens.getRefreshToken()));
+        assertEquals("refresh", jwtTokenProvider.getTokenType(tokens.getRefreshToken()));
+        verify(values).set("refresh:loginUser1", tokens.getRefreshToken(),
+                jwtTokenProvider.getRefreshTokenExpiration(), TimeUnit.MILLISECONDS);
     }
 
     @Test

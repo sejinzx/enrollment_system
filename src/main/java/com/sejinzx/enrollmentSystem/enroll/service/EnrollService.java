@@ -110,10 +110,16 @@ public class EnrollService {
      */
     @Transactional
     public Long deleteEnroll(Long enrollSeq, String userId) {
-        EnrollEntity enrollEntity = validateMyEnroll(enrollSeq, userId);
+
+        UserEntity user = userService.validateClassmate(userId);
+
+        EnrollEntity enrollEntity = validateMyEnroll(enrollSeq, user.getUserId());
+
         validateCancelable(enrollEntity);
 
-        enrollEntity.deleteEnroll();
+        classService.decreaseCurrApps(enrollEntity.getClassEntity().getClassSeq());
+
+        enrollEntity.changeState();
 
         classService.decreaseCurrApps(enrollEntity.getClassEntity().getClassSeq());
 

@@ -1,6 +1,5 @@
 package com.sejinzx.enrollmentSystem.config;
 
-import com.sejinzx.enrollmentSystem.error.JwtAuthenticationException;
 import com.sejinzx.enrollmentSystem.user.entity.CustomUserDetails;
 import com.sejinzx.enrollmentSystem.user.entity.UserEntity;
 import com.sejinzx.enrollmentSystem.user.entity.UserType;
@@ -10,23 +9,28 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
 
 @Slf4j
 @RequiredArgsConstructor
 public class JWTFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final StringRedisTemplate redisTemplate;
 
-    private boolean isWhiteList(String path) {
+    private boolean isWhiteList(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String method = request.getMethod();
+
         return path.startsWith("/api/users/login")
                 || path.startsWith("/api/users/signup")
+                || ("GET".equals(method) && (path.equals("/api/classes") || path.matches("/api/classes/[0-9]+")))
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/v3/api-docs");
     }
@@ -37,7 +41,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        if (isWhiteList(path)) {
+        if (isWhiteList(request)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -56,6 +60,11 @@ public class JWTFilter extends OncePerRequestFilter {
         try {
             if (jwtTokenProvider.isTokenExpired(token)) {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "JWT 토큰이 만료되었습니다.");
+                return;
+            }
+
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(token))) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "로그아웃된 토큰입니다.");
                 return;
             }
 

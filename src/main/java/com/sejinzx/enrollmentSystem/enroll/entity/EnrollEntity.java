@@ -61,7 +61,7 @@ public class EnrollEntity {
     /**
      * 수강 신청 삭제 메서드
      */
-    public void deleteEnroll() {
+    public void changeState() {
         this.enrollState = EnrollState.CANCELLED;
     }
 

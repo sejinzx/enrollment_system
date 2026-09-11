@@ -82,6 +82,19 @@ public class ClassService {
     }
 
     /**
+     * 내 강의 목록 조회
+     */
+    public Page<ResponseGetClass> getMyListClass(int page, int size, ClassState state, String userId) {
+        UserEntity creator = userService.validateCreator(userId);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ClassEntity> result = state == null
+                ? classRepository.findByUser_UserSeqAndClassDeletedFalse(creator.getUserSeq(), pageable)
+                : classRepository.findByUser_UserSeqAndClassStateAndClassDeletedFalse(
+                        creator.getUserSeq(), state, pageable);
+        return result.map(this::toResponseGetClass);
+    }
+
+    /**
      * 강의 목록 조회
      */
     public Page<ResponseGetClass> getListClass(int page, int size, ClassState state) {
@@ -175,7 +188,7 @@ public class ClassService {
         }
     }
 
-    // 수강 인원 증가
+    // 신청 인원 증가
     @Transactional
     public void increaseCurrApps(Long classSeq) {
 
@@ -189,10 +202,12 @@ public class ClassService {
         }
     }
 
-    // 수강 인원 감소
+    // 신청 인원 감소
     @Transactional
     public void decreaseCurrApps(Long classSeq) {
-        int updatedCount = classRepository.decreaseCurrApps(classSeq);
+
+        int updatedCount =
+                classRepository.decreaseCurrApps(classSeq);
 
         if (updatedCount == 0) {
             throw new BusinessException(
