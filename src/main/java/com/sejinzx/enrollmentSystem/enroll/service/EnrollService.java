@@ -113,15 +113,16 @@ public class EnrollService {
 
         UserEntity user = userService.validateClassmate(userId);
 
-        EnrollEntity enrollEntity = validateMyEnroll(enrollSeq, user.getUserId());
+        EnrollEntity enrollEntity =
+                validateMyEnroll(enrollSeq, user.getUserId());
 
         validateCancelable(enrollEntity);
 
-        classService.decreaseCurrApps(enrollEntity.getClassEntity().getClassSeq());
+        classService.decreaseCurrApps(
+                enrollEntity.getClassEntity().getClassSeq()
+        );
 
         enrollEntity.changeState();
-
-        classService.decreaseCurrApps(enrollEntity.getClassEntity().getClassSeq());
 
         return enrollEntity.getEnrollSeq();
     }
