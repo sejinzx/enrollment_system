@@ -22,21 +22,48 @@ public class EnrollmentRequestConsumer {
     )
     public void consume(EnrollmentRequestedEvent req) {
 
-        long elapsed;
+        log.info(
+                "CONSUME classSeq={}, userId={}",
+                req.getClassSeq(),
+                req.getUserId()
+        );
 
         try {
-            enrollService.processEnroll(req.getClassSeq(), req.getUserId());
 
-            elapsed = System.currentTimeMillis() - req.getRequestTime();
+            enrollService.processEnroll(
+                    req.getClassSeq(),
+                    req.getUserId()
+            );
 
-            log.info("ENROLL_SUCCESS EndToEnd={}ms, classSeq={}, userId={}",
-                    elapsed, req.getClassSeq(), req.getUserId());
+            long elapsed =
+                    System.currentTimeMillis()
+                            - req.getRequestTime();
+
+            log.info(
+                    "ENROLL_SUCCESS EndToEnd={}ms, classSeq={}, userId={}",
+                    elapsed,
+                    req.getClassSeq(),
+                    req.getUserId()
+            );
 
         } catch (BusinessException e) {
-            elapsed = System.currentTimeMillis() - req.getRequestTime();
 
-            log.info("ENROLL_FAIL reason={}, EndToEnd={}ms, classSeq={}, userId={}",
-                    e.getMessage(), elapsed, req.getClassSeq(), req.getUserId());
+            log.info(
+                    "ENROLL_FAIL reason={}, classSeq={}, userId={}",
+                    e.getMessage(),
+                    req.getClassSeq(),
+                    req.getUserId()
+            );
+        } catch (Exception e) {
+
+            log.error(
+                    "ENROLL_SYSTEM_ERROR classSeq={}, userId={}",
+                    req.getClassSeq(),
+                    req.getUserId(),
+                    e
+            );
+
+            throw e;
         }
     }
 }
