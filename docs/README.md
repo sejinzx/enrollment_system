@@ -1,88 +1,56 @@
+# 🎓 Enrollment System
 
-# 🎓 수강 신청 시스템 (Enrollment System)
+동시 요청이 집중되는 수강 신청 환경에서 **정원 초과와 중복 신청을 방지하고, Kafka 장애 및 메시지 재전달 상황에서도 데이터 정합성을 유지하도록 구현한 수강 신청 시스템**입니다.
 
-동시 요청이 집중되는 수강 신청 환경에서 **정원 초과와 중복 신청을 방지하고 데이터 정합성을 유지하는 웹 서비스**입니다.
+Spring Boot와 MySQL을 기반으로 개발했으며, Kafka를 이용해 수강 신청 요청과 실제 처리 로직을 비동기로 분리했습니다.
 
-Spring Boot와 MySQL을 기반으로 개발했으며, Kafka를 활용해 수강 신청 요청과 실제 처리 로직을 비동기로 분리했습니다.
+---
 
-비관적 락 기반 처리 과정에서 발생한 락 경쟁 및 데드락 문제를 해결하기 위해 조건부 UPDATE를 적용했습니다.
-
-## 🛠️ 기술 스택
+## 🛠 Tech Stack
 
 | 구분 | 기술 |
 |---|---|
-| Backend | Java 17, Spring Boot, Spring Security, JPA |
-| Database | MySQL, Redis |
+| Backend | Java 17, Spring Boot 3.3.5, Spring Data JPA |
+| Security | Spring Security, JWT |
+| Database | MySQL 8, Redis |
 | Message Queue | Apache Kafka |
+| Test | JUnit 5, Testcontainers, Awaitility, JMeter |
 | Infrastructure | Docker, AWS EC2 |
 | CI/CD | GitHub Actions |
-| Test | JUnit 5, JMeter |
-
-## ✨ 주요 기능
-
-- Spring Security + JWT 기반 인증/인가
-- 강의 등록, 수정, 삭제 및 조회
-- Kafka 기반 비동기 수강 신청
-- 조건부 UPDATE를 이용한 정원 초과 방지
-- 복합 UNIQUE 제약조건을 이용한 중복 신청 방지
-- 수강 신청 취소 및 재신청
-- GitHub Actions 기반 AWS 자동 배포
 
 ---
 
-## 1. 시스템 아키텍처
-
-### 수강 신청 처리 흐름
+## 1. Kafka 기반 비동기 수강 신청
 
 ```text
 Client
-  │
-  ▼
+  ↓
 Spring Boot API
-  │
-  ▼
+  ↓
 Kafka Producer
-  │
-  ▼
-Kafka Topic
-  │
-  ▼
+  ↓
+enrollment-request
+  ↓
 Kafka Consumer
-  │
-  ▼
+  ↓
 EnrollService
-  │
-  ├── 기존 신청 검증
-  │
-  ├── 조건부 UPDATE
-  │
-  └── 신청 데이터 저장
-        │
-        ▼
-      MySQL
+  ↓
+MySQL
 ```
 
-수강 신청 요청은 Kafka Producer를 통해 메시지로 발행하고, Consumer에서 실제 신청 로직을 처리합니다.
+수강 신청 API는 요청을 Kafka에 전달한 뒤 **HTTP 202 Accepted**를 반환하고 실제 신청 처리는 Consumer에서 비동기로 진행합니다.
 
-- Topic Partition: 3개
-- Consumer Concurrency: 3개
-- Message Key: 강의 ID (`classSeq`)
-
-수강 신청 API는 요청을 접수한 후 HTTP 202 Accepted를 반환하며, 실제 신청 처리는 비동기로 진행됩니다.
+- Partition: 3
+- Consumer Concurrency: 3
+- Message Key: `classSeq`
 
 ---
 
-## 2. 동시성 문제 해결
+## 2. 동시성 제어
 
-### 문제 상황
+초기 비관적 락 방식은 동시 요청 증가 시 동일 강의 row에 대한 락 경쟁이 발생했습니다.
 
-기존에는 비관적 락을 이용해 강의를 조회하고 정원을 확인한 뒤 신청 인원을 증가시켰습니다.
-
-그러나 동시 요청이 증가하면서 동일한 강의 데이터에 대한 락 경쟁과 데드락이 발생했습니다.
-
-### 개선 방법
-
-강의 조회와 신청 인원 증가를 분리하는 대신, 정원 확인과 신청 인원 증가를 하나의 조건부 UPDATE로 처리하도록 변경했습니다.
+이를 **조건부 UPDATE** 방식으로 변경했습니다.
 
 ```sql
 UPDATE classes
@@ -93,101 +61,122 @@ WHERE class_seq = ?
   AND class_curr_apps < class_max_cap;
 ```
 
-UPDATE 결과가 1이면 정원 확보에 성공한 것으로 판단하고, 0이면 신청 실패로 처리합니다.
+UPDATE 결과가 `1`이면 정원 확보 성공, `0`이면 정원 초과로 처리합니다.
 
-신청 인원 증가와 수강 신청 데이터 저장은 동일한 트랜잭션에서 처리하여 저장 실패 시 함께 롤백되도록 구성했습니다.
-
-### 중복 신청 방지
-
-동일한 사용자가 같은 강의에 중복 신청하는 것을 방지하기 위해 복합 UNIQUE 제약조건을 적용했습니다.
-
-```sql
-UNIQUE (user_seq, class_seq)
-```
-
-애플리케이션의 기존 신청 조회와 DB 제약조건을 함께 사용하여 중복 신청을 방지합니다.
-
-취소된 신청은 새로운 데이터를 생성하지 않고 기존 신청의 상태를 변경하여 재신청 처리합니다.
+신청 인원 증가와 수강 신청 데이터 저장은 동일한 트랜잭션에서 처리합니다.
 
 ---
 
-## 3. 동시성 및 데이터 정합성 테스트
+## 3. 중복 신청 및 멱등성
 
-JUnit 기반으로 실제 MySQL 환경에서 동시성 테스트를 구현했습니다.
+동일 사용자의 동일 강의 중복 신청을 방지하기 위해 애플리케이션 검증과 DB UNIQUE 제약조건을 함께 사용합니다.
 
-### 정원 초과 방지
+```java
+@UniqueConstraint(
+    name = "uq_enrollment_user_class",
+    columnNames = {"user_seq", "class_seq"}
+)
+```
 
-정원 100명인 강의에 서로 다른 사용자 200명이 동시에 신청하는 상황을 테스트합니다.
+Kafka에서 동일 메시지가 재전달되더라도 첫 번째 요청만 반영되고 이후 요청은 중복 신청으로 처리됩니다.
 
-| 검증 항목 | 기대 결과 |
+### 멱등성 검증
+
+동일 Kafka 이벤트를 두 번 발행해 다음 결과를 확인했습니다.
+
+| 항목 | 결과 |
+|---|---:|
+| Kafka 메시지 전달 | 2회 |
+| 실제 신청 데이터 | 1건 |
+| 신청 인원 증가 | 1명 |
+
+---
+
+## 4. Kafka Retry & DLT
+
+Consumer 처리 중 DB 연결 장애 등의 시스템 예외가 발생하면 재시도합니다.
+
+```java
+new FixedBackOff(1000L, 2L);
+```
+
+```text
+최초 처리
+→ 재시도
+→ 재시도
+→ DLT
+```
+
+최초 처리 포함 최대 3회 실패하면 메시지를 `enrollment-request-dlt`로 이동시킵니다.
+
+중복 신청이나 정원 초과 같은 `BusinessException`은 재시도하지 않고, 시스템 예외만 Retry 대상으로 처리합니다.
+
+---
+
+## 5. 테스트
+
+MySQL과 Kafka를 Testcontainers로 실행하여 실제 환경에 가까운 조건에서 검증했습니다.
+
+### 동시성 테스트
+
+정원 100명인 강의에 200명이 동시에 신청합니다.
+
+| 항목 | 결과 |
 |---|---:|
 | 신청 성공 | 100건 |
-| 정원 초과 거절 | 100건 |
+| 정원 초과 | 100건 |
 | 실제 신청 데이터 | 100건 |
 | 현재 신청 인원 | 100명 |
 
-### 중복 신청 방지
+동일 사용자가 같은 강의에 20번 동시에 신청하는 경우도 검증했습니다.
 
-동일한 사용자가 같은 강의에 20번 동시에 신청하는 상황을 테스트합니다.
-
-| 검증 항목 | 기대 결과 |
+| 항목 | 결과 |
 |---|---:|
 | 신청 성공 | 1건 |
-| 중복 신청 거절 | 19건 |
+| 중복 신청 | 19건 |
 | 실제 신청 데이터 | 1건 |
+
+### Kafka 통합 테스트
+
+- 동일 메시지 재전달 시 DB 반영 1회 검증
+- 일시적 장애 발생 시 Retry 후 성공 검증
+- 재시도 실패 시 DLT 전달 검증
 
 ---
 
-## 4. JMeter 성능 테스트
+## 6. 성능 테스트
 
-JMeter를 이용해 Kafka Partition 및 Consumer Concurrency 구성에 따른 HTTP API 성능을 비교했습니다.
+JMeter를 이용해 Kafka Partition과 Consumer Concurrency 확장 전후를 비교했습니다.
 
 | 구성 | 평균 응답시간 | 처리량 |
 |---|---:|---:|
-| Partition 1 / Concurrency 1 | 1,389ms | 373.41 req/s |
-| Partition 3 / Concurrency 3 | 206ms | 637.76 req/s |
+| Partition 1 / Concurrency 1 | 1,389 ms | 373.41 req/s |
+| Partition 3 / Concurrency 3 | 206 ms | 637.76 req/s |
 
-Partition과 Consumer Concurrency를 함께 확장한 구성에서 평균 HTTP 응답시간 감소와 처리량 증가를 확인했습니다.
-
-※ 비동기 API의 HTTP 응답 기준이며, 실제 수강 신청 완료시간과는 구분됩니다.
+> 비동기 API의 HTTP 요청 접수 시간 기준입니다.
 
 ---
 
-## 5. CI/CD 및 AWS 배포
+## 7. CI/CD
 
-GitHub Actions와 Docker를 이용해 빌드 및 배포 과정을 자동화했습니다.
+GitHub Actions를 이용해 테스트와 배포를 자동화했습니다.
 
 ```text
-GitHub Push
-    │
-    ▼
-Gradle Build
-    │
-    ▼
-Docker Image Build
-    │
-    ▼
-Docker Hub
-    │
-    ▼
-AWS EC2
-    │
-    ▼
-Docker Compose
-    │
-    ▼
-서비스 실행
-```
+Pull Request
+→ Gradle Test
 
-- Pull Request 시 Gradle 테스트 실행
-- main 브랜치 Push 시 Docker 이미지 빌드 및 업로드
-- SSH를 이용한 EC2 자동 배포
-- Docker Compose 기반 Spring Boot, MySQL, Kafka, Redis 실행 환경 구성
+main Push
+→ Build
+→ Docker Image Build
+→ Docker Hub
+→ AWS EC2
+→ Docker Compose 배포
+```
 
 ---
 
-## 📄 프로젝트 문서
+## 📄 문서
 
-- [API 명세서](./API-DESC.md)
-- [DB 스키마](./DB-SCHEMA.md)
-- [JMeter 테스트](../jmeter/test-plan.md)
+- [API 명세서](./docs/API-DESC.md)
+- [DB 스키마](./docs/DB-SCHEMA.md)
+- [JMeter 테스트 계획](./jmeter/test-plan.md)
