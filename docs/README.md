@@ -20,6 +20,12 @@ Spring Boot와 MySQL을 기반으로 개발했으며, Kafka를 이용해 수강 
 
 ---
 
+## 🗂 ERD
+
+![ERD](./images/erd.png)
+
+---
+
 ## 1. Kafka 기반 비동기 수강 신청
 
 ```text
