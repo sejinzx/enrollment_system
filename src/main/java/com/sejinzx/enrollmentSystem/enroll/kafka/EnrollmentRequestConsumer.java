@@ -22,6 +22,12 @@ public class EnrollmentRequestConsumer {
     )
     public void consume(EnrollmentRequestedEvent req) {
 
+        log.info(
+                "CONSUME classSeq={}, userId={}",
+                req.getClassSeq(),
+                req.getUserId()
+        );
+
         try {
 
             enrollService.processEnroll(

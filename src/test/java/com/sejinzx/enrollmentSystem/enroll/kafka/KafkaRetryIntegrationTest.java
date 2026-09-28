@@ -15,20 +15,21 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.test.annotation.DirtiesContext;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class KafkaRetryIntegrationTest
         extends KafkaMySqlContainerTest {
 
@@ -114,7 +115,7 @@ class KafkaRetryIntegrationTest
                         eq(userId)
                 );
 
-        // DLT 메시지 확인용 Consumer
+        // DLT 메시지 확인용 Consumer 설정
         Map<String, Object> props = Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 KAFKA.getBootstrapServers(),
@@ -141,17 +142,21 @@ class KafkaRetryIntegrationTest
                     List.of("enrollment-request-dlt")
             );
 
-            // DLT Consumer의 파티션 할당 대기
-            await()
-                    .atMost(10, TimeUnit.SECONDS)
-                    .until(() -> {
+            // DLT Consumer 파티션 할당 대기
+            long assignmentDeadline =
+                    System.nanoTime()
+                            + TimeUnit.SECONDS.toNanos(10);
 
-                        consumer.poll(
-                                Duration.ofMillis(200)
-                        );
+            while (
+                    consumer.assignment().isEmpty()
+                            && System.nanoTime() < assignmentDeadline
+            ) {
+                consumer.poll(
+                        Duration.ofMillis(200)
+                );
+            }
 
-                        return !consumer.assignment().isEmpty();
-                    });
+            assertThat(consumer.assignment()).isNotEmpty();
 
             // when
             enrollmentProducer.sendRequest(
@@ -171,9 +176,10 @@ class KafkaRetryIntegrationTest
             // DLT 메시지가 도착할 때까지 반복 조회
             while (System.nanoTime() < deadline) {
 
-                var records = consumer.poll(
-                        Duration.ofMillis(200)
-                );
+                var records =
+                        consumer.poll(
+                                Duration.ofMillis(200)
+                        );
 
                 for (var record : records) {
 
@@ -181,7 +187,6 @@ class KafkaRetryIntegrationTest
                             .equals(record.key())) {
 
                         dltRecord = record;
-
                         break;
                     }
                 }
@@ -191,7 +196,15 @@ class KafkaRetryIntegrationTest
                 }
             }
 
-            // DLT 메시지 확인
+            verify(
+                    enrollService,
+                    timeout(10000).times(3)
+            ).processEnroll(
+                    classSeq,
+                    userId
+            );
+
+            // then
             assertThat(dltRecord)
                     .isNotNull();
 
@@ -202,15 +215,6 @@ class KafkaRetryIntegrationTest
 
             assertThat(dltRecord.value())
                     .isNotEmpty();
-
-            // 재시도 횟수 검증
-            verify(
-                    enrollService,
-                    times(3)
-            ).processEnroll(
-                    classSeq,
-                    userId
-            );
         }
     }
 }
