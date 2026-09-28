@@ -15,4 +15,14 @@ public class KafkaTopicConfig {
                 .replicas(1)
                 .build();
     }
+
+    @Bean
+    public NewTopic enrollmentRequestDltTopic() {
+
+        return TopicBuilder
+                .name("enrollment-request-dlt")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
 }
