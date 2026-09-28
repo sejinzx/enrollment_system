@@ -4,10 +4,14 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**/README.md'
 
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**/README.md'
 
 jobs:
   # PR 생성/수정 시 테스트만 수행
