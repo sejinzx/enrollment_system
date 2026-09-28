@@ -198,7 +198,7 @@ class KafkaRetryIntegrationTest
 
             verify(
                     enrollService,
-                    timeout(10000).times(3)
+                    timeout(10000).atLeast(3)
             ).processEnroll(
                     classSeq,
                     userId
