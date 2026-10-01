@@ -94,7 +94,7 @@ public class SecurityConfig {
             configuration.setAllowedOrigins(
                     List.of(
                             "http://localhost:3000",
-                            "http://3.35.150.99:3000"
+                            "http://13.209.75.120:3000"
                     )
             );
             configuration.setAllowedMethods(Collections.singletonList("*"));
