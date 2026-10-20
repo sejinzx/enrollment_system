@@ -183,6 +183,6 @@ main Push
 
 ## 📄 문서
 
-- [API 명세서](./docs/API-DESC.md)
-- [DB 스키마](./docs/DB-SCHEMA.md)
+- [API 명세서](./API-DESC.md)
+- [DB 스키마](./DB-SCHEMA.md)
 - [JMeter 테스트 계획](./jmeter/test-plan.md)
