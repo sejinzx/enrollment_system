@@ -185,4 +185,4 @@ main Push
 
 - [API 명세서](./API-DESC.md)
 - [DB 스키마](./DB-SCHEMA.md)
-- [JMeter 테스트 계획](./jmeter/test-plan.md)
+- [JMeter 테스트 계획](../jmeter/test-plan.md)
